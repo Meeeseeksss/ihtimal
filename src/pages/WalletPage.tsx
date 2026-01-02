@@ -17,8 +17,10 @@ import {
   TableHead,
   TableRow,
   Chip,
+  useMediaQuery,
 } from "@mui/material";
 import { useMemo, useState } from "react";
+import { useTheme } from "@mui/material/styles";
 import { useNotify } from "../app/notifications";
 import { useAccountStore, accountActions } from "../data/accountStore";
 
@@ -29,6 +31,8 @@ function fmtUsd(n: number) {
 
 export function WalletPage() {
   const notify = useNotify();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const cash = useAccountStore((s) => s.walletCashUsd);
   const txs = useAccountStore((s) => s.transactions);
 
@@ -115,36 +119,67 @@ export function WalletPage() {
           <Typography variant="h6">Transactions</Typography>
           <Divider />
 
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Time</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Note</TableCell>
-                <TableCell align="right">Amount</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {txsSorted.slice(0, 160).map((tx) => (
-                <TableRow key={tx.id} hover>
-                  <TableCell>{new Date(tx.ts).toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Chip size="small" label={tx.type} variant="outlined" />
-                  </TableCell>
-                  <TableCell sx={{ color: "text.secondary" }}>{tx.note ?? "—"}</TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{
-                      fontWeight: 800,
-                      color: tx.amountUsd > 0 ? "success.main" : tx.amountUsd < 0 ? "error.main" : "text.primary",
-                    }}
-                  >
-                    {fmtUsd(tx.amountUsd)}
-                  </TableCell>
-                </TableRow>
+          {isMobile ? (
+            <Stack spacing={1}>
+              {txsSorted.slice(0, 120).map((tx) => (
+                <Card key={tx.id} variant="outlined" sx={{ borderColor: "divider" }}>
+                  <CardContent sx={{ display: "grid", gap: 0.75 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "center" }}>
+                      <Chip size="small" label={tx.type} variant="outlined" />
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 900,
+                          color: tx.amountUsd > 0 ? "success.main" : tx.amountUsd < 0 ? "error.main" : "text.primary",
+                        }}
+                      >
+                        {fmtUsd(tx.amountUsd)}
+                      </Typography>
+                    </Box>
+
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      {new Date(tx.ts).toLocaleString()}
+                    </Typography>
+
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      {tx.note ?? "—"}
+                    </Typography>
+                  </CardContent>
+                </Card>
               ))}
-            </TableBody>
-          </Table>
+            </Stack>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Time</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Note</TableCell>
+                  <TableCell align="right">Amount</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {txsSorted.slice(0, 160).map((tx) => (
+                  <TableRow key={tx.id} hover>
+                    <TableCell>{new Date(tx.ts).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label={tx.type} variant="outlined" />
+                    </TableCell>
+                    <TableCell sx={{ color: "text.secondary" }}>{tx.note ?? "—"}</TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        fontWeight: 800,
+                        color: tx.amountUsd > 0 ? "success.main" : tx.amountUsd < 0 ? "error.main" : "text.primary",
+                      }}
+                    >
+                      {fmtUsd(tx.amountUsd)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 

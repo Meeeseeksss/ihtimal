@@ -24,32 +24,29 @@ import Logo from "../assets/ihtimal-logo.svg";
 const RECENTS_KEY = "recentMarketSearches";
 const MAX_RECENTS = 7;
 
+type SearchItem =
+  | { type: "market"; id: string; label: string; sublabel?: string }
+  | { type: "recent"; q: string; label: string }
+  | { type: "search"; q: string; label: string };
+
 function readRecents(): string[] {
   try {
     const raw = localStorage.getItem(RECENTS_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x) => typeof x === "string").slice(0, MAX_RECENTS);
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.filter((x) => typeof x === "string").slice(0, MAX_RECENTS);
   } catch {
     return [];
   }
 }
 
-function writeRecents(values: string[]) {
+function writeRecents(recents: string[]) {
   try {
-    localStorage.setItem(RECENTS_KEY, JSON.stringify(values.slice(0, MAX_RECENTS)));
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(recents.slice(0, MAX_RECENTS)));
   } catch {
     // ignore
   }
-}
-
-function pushRecent(q: string) {
-  const trimmed = q.trim();
-  if (!trimmed) return;
-  const current = readRecents();
-  const next = [trimmed, ...current.filter((x) => x.toLowerCase() !== trimmed.toLowerCase())];
-  writeRecents(next);
 }
 
 export function TopNav({
@@ -61,155 +58,126 @@ export function TopNav({
   isMobile: boolean;
   onMenuClick: () => void;
 }) {
-  /**
-   * 🎛️ DESIGN CONTROLS
-   */
-  const navPx = { xs: 2, sm: 2, md: 2 };
-  const logoHeight = 26;
-  const leftGap = 1.25;
-
-  const searchMaxWidth = 900;
-  const searchPreferred = { xs: "auto", sm: 360, md: 410 };
-
   const navigate = useNavigate();
   const location = useLocation();
 
-  const anchorRef = useRef<HTMLDivElement | null>(null);
-  const [searchValue, setSearchValue] = useState("");
+  // Locked design constraints (source of truth per user)
+  const navPx = { xs: 1.5, sm: 2.5 };
+  const searchHeight = 40;
+  const searchRadius = 999;
+  const logoHeight = 22;
+  const leftGap = 1.25;
+
+  const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [recents, setRecents] = useState<string[]>(() => readRecents());
+  const [highlightIndex, setHighlightIndex] = useState(0);
 
-  const [highlightIndex, setHighlightIndex] = useState<number>(-1);
-  const [recents, setRecents] = useState<string[]>([]);
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // load recents on mount
   useEffect(() => {
     setRecents(readRecents());
   }, []);
 
-  // Keep the TopNav search box in sync when the user navigates to /markets?q=...
+  // If the user navigates, close the popper.
   useEffect(() => {
-    if (!location.pathname.startsWith("/markets")) return;
-    const sp = new URLSearchParams(location.search);
-    const q = sp.get("q") ?? "";
-    setSearchValue(q);
     setOpen(false);
-    setHighlightIndex(-1);
   }, [location.pathname, location.search]);
 
-  // Close autosuggest when clicking outside the search area
-  useEffect(() => {
-    function onDocMouseDown(ev: MouseEvent) {
-      const el = anchorRef.current;
-      if (!el) return;
-      if (ev.target instanceof Node && el.contains(ev.target)) return;
-      setOpen(false);
-      setHighlightIndex(-1);
-    }
+  const matches = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return [];
 
-    document.addEventListener("mousedown", onDocMouseDown);
-    return () => document.removeEventListener("mousedown", onDocMouseDown);
-  }, []);
+    // Very lightweight “autosuggest” from mockMarkets (no backend)
+    const hits = mockMarkets
+      .filter((m) => m.question.toLowerCase().includes(needle))
+      .slice(0, 7)
+      .map<SearchItem>((m) => ({
+        type: "market",
+        id: m.id,
+        label: m.question,
+        sublabel: `${m.category} • YES ${Math.round(m.yesPrice * 100)}%`,
+      }));
 
-  const marketSuggestions = useMemo(() => {
-    const q = searchValue.trim().toLowerCase();
-    if (!q) return [] as typeof mockMarkets;
+    return hits;
+  }, [q]);
 
-    // Simple relevance: contains query, then sort by volume as a proxy for popularity.
-    return mockMarkets
-      .filter((m) => m.question.toLowerCase().includes(q))
-      .sort((a, b) => b.volumeUsd - a.volumeUsd)
-      .slice(0, 7);
-  }, [searchValue]);
-
-  const recentSuggestions = useMemo(() => {
-    const q = searchValue.trim();
-    if (q) return [];
-    return recents.slice(0, MAX_RECENTS);
-  }, [searchValue, recents]);
-
-  const hasDropdownContent = marketSuggestions.length > 0 || recentSuggestions.length > 0;
-
-  // Flatten "selectable items" for keyboard nav
   const selectable = useMemo(() => {
-    type Item =
-      | { type: "market"; id: string; label: string }
-      | { type: "recent"; q: string; label: string }
-      | { type: "search"; q: string; label: string };
+    const needle = q.trim();
 
-    const items: Item[] = [];
-
-    if (searchValue.trim()) {
-      marketSuggestions.forEach((m) =>
-        items.push({ type: "market", id: m.id, label: m.question })
-      );
-      // "Search for ..." action
-      items.push({
-        type: "search",
-        q: searchValue.trim(),
-        label: `Search for “${searchValue.trim()}”`,
-      });
-    } else {
-      recentSuggestions.forEach((q) =>
-        items.push({ type: "recent", q, label: q })
-      );
+    const out: SearchItem[] = [];
+    if (!needle) {
+      // Recents when empty.
+      for (const r of recents.slice(0, MAX_RECENTS)) {
+        out.push({ type: "recent", q: r, label: r });
+      }
+      return out;
     }
 
-    return items;
-  }, [marketSuggestions, recentSuggestions, searchValue]);
+    // Markets first
+    out.push(...matches);
 
-  function goToSearch(q: string) {
-    const trimmed = q.trim();
+    // “Search for …” action
+    out.push({ type: "search", q: needle, label: `Search markets for "${needle}"` });
+
+    return out;
+  }, [q, recents, matches]);
+
+  function addRecent(next: string) {
+    const trimmed = next.trim();
     if (!trimmed) return;
-    pushRecent(trimmed);
-    setRecents(readRecents());
-    navigate(`/markets?q=${encodeURIComponent(trimmed)}`);
+
+    const merged = [trimmed, ...recents.filter((r) => r !== trimmed)].slice(0, MAX_RECENTS);
+    setRecents(merged);
+    writeRecents(merged);
+  }
+
+  function goToSearch(query: string) {
+    addRecent(query);
     setOpen(false);
-    setHighlightIndex(-1);
+    navigate(`/markets?q=${encodeURIComponent(query)}`);
   }
 
-  function goToMarket(id: string) {
-    // (Optional) store query as recent if user had typed something
-    if (searchValue.trim()) {
-      pushRecent(searchValue.trim());
-      setRecents(readRecents());
-    }
-    navigate(`/markets/${encodeURIComponent(id)}`);
+  function goToMarket(marketId: string) {
     setOpen(false);
-    setHighlightIndex(-1);
+    navigate(`/markets/${marketId}`);
   }
 
-  // function openIfPossible() {
-  //   if (!hasDropdownContent) return;
-  //   setOpen(true);
-  // }
-
-  function closeDropdown() {
-    setOpen(false);
-    setHighlightIndex(-1);
-  }
-
-  function moveHighlight(delta: number) {
-    if (selectable.length === 0) return;
-    setOpen(true);
-
-    setHighlightIndex((prev) => {
-      const start = prev < 0 ? (delta > 0 ? 0 : selectable.length - 1) : prev;
-      const next = (start + delta + selectable.length) % selectable.length;
-      return next;
-    });
-  }
-
-  function activateHighlighted() {
-    if (highlightIndex < 0 || highlightIndex >= selectable.length) {
-      // If nothing highlighted, behave like "search"
-      if (searchValue.trim()) goToSearch(searchValue);
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      setOpen(true);
       return;
     }
 
-    const item = selectable[highlightIndex];
-    if (item.type === "market") goToMarket(item.id);
-    if (item.type === "recent") goToSearch(item.q);
-    if (item.type === "search") goToSearch(item.q);
+    if (!open) return;
+
+    if (e.key === "Escape") {
+      setOpen(false);
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightIndex((i) => Math.min(selectable.length - 1, i + 1));
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightIndex((i) => Math.max(0, i - 1));
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const item = selectable[highlightIndex];
+      if (!item) return;
+
+      if (item.type === "market") goToMarket(item.id);
+      if (item.type === "recent") goToSearch(item.q);
+      if (item.type === "search") goToSearch(item.q);
+    }
   }
 
   return (
@@ -218,14 +186,11 @@ export function TopNav({
       elevation={0}
       sx={{
         bgcolor: "background.paper",
-        color: "text.primary",
-        borderBottom: "1px solid",
+        borderBottom: 1,
         borderColor: "divider",
-        zIndex: (t) => t.zIndex.drawer + 1,
+        width: "100vw",
         left: 0,
         right: 0,
-        width: "100vw",
-        maxWidth: "100vw",
       }}
     >
       <Toolbar
@@ -255,18 +220,28 @@ export function TopNav({
               flex: "0 0 auto",
             }}
           >
-            <IconButton
-              onClick={onMenuClick}
-              aria-label={
-                isMobile
-                  ? "Toggle menu"
-                  : collapsed
-                  ? "Expand sidebar"
-                  : "Collapse sidebar"
-              }
-            >
-              <MenuIcon />
-            </IconButton>
+            {/* Mobile: hide hamburger/menu button entirely (user request). */}
+            {!isMobile ? (
+              <IconButton
+                onClick={onMenuClick}
+                sx={{
+                  border: "1px solid",
+                  borderColor: "divider",
+                  width: 40,
+                  height: 40,
+                  borderRadius: 999,
+                }}
+                aria-label={
+                  isMobile
+                    ? "Toggle menu"
+                    : collapsed
+                    ? "Expand sidebar"
+                    : "Collapse sidebar"
+                }
+              >
+                <MenuIcon />
+              </IconButton>
+            ) : null}
 
             <Box
               component={RouterLink}
@@ -289,181 +264,135 @@ export function TopNav({
 
           {/* CENTER: search */}
           <Box
-            sx={{
-              flex: "1 1 auto",
-              minWidth: 0,
-              maxWidth: searchMaxWidth,
-              width: searchPreferred,
-            }}
             ref={anchorRef}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              display: "flex",
+              justifyContent: "center",
+            }}
           >
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Search markets"
-              value={searchValue}
-              onChange={(e) => {
-                const v = e.target.value;
-                setSearchValue(v);
-                setHighlightIndex(-1);
-                setOpen(Boolean(v.trim()) && marketSuggestions.length > 0);
-                if (!v.trim()) setOpen(true); // show recents when empty
-              }}
-              onFocus={() => {
-                setRecents(readRecents());
-                if (searchValue.trim()) {
-                  setOpen(marketSuggestions.length > 0);
-                } else {
-                  setOpen(true); // show recents
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  moveHighlight(1);
-                }
-                if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  moveHighlight(-1);
-                }
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  activateHighlighted();
-                }
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  closeDropdown();
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            <Popper
-              open={open && hasDropdownContent}
-              anchorEl={anchorRef.current}
-              placement="bottom-start"
-              sx={{ zIndex: (t) => t.zIndex.modal + 1, width: "100%" }}
-            >
-              <Paper
-                elevation={6}
-                sx={{
-                  mt: 0.75,
-                  border: "1px solid",
-                  borderColor: "divider",
-                  overflow: "hidden",
-                }}
-              >
-                <List dense disablePadding>
-                  {/* Recents mode (empty query) */}
-                  {!searchValue.trim() && recentSuggestions.length > 0 && (
-                    <>
-                      <Box sx={{ px: 1.5, py: 1 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Recent searches
-                        </Typography>
-                      </Box>
-
-                      {recentSuggestions.map((q, idx) => {
-                        const itemIndex = idx; // in recents mode, recents are first
-                        const selected = highlightIndex === itemIndex;
-                        return (
-                          <ListItemButton
-                            key={`recent-${q}`}
-                            selected={selected}
-                            onMouseEnter={() => setHighlightIndex(itemIndex)}
-                            onMouseDown={(ev) => ev.preventDefault()}
-                            onClick={() => goToSearch(q)}
-                          >
-                            <ListItemText primary={q} />
-                          </ListItemButton>
-                        );
-                      })}
-                    </>
-                  )}
-
-                  {/* Market suggestions mode (typed query) */}
-                  {searchValue.trim() && marketSuggestions.length > 0 && (
-                    <>
-                      {marketSuggestions.map((m, idx) => {
-                        const itemIndex = idx; // market items first
-                        const selected = highlightIndex === itemIndex;
-                        return (
-                          <ListItemButton
-                            key={m.id}
-                            selected={selected}
-                            onMouseEnter={() => setHighlightIndex(itemIndex)}
-                            onMouseDown={(ev) => ev.preventDefault()}
-                            onClick={() => goToMarket(m.id)}
-                          >
-                            <ListItemText
-                              primary={m.question}
-                              secondary={
-                                <Typography
-                                  component="span"
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  {m.category} · ${m.volumeUsd.toLocaleString()} vol
-                                </Typography>
-                              }
-                            />
-                          </ListItemButton>
-                        );
-                      })}
-
-                      {/* "Search for ..." action is last selectable */}
-                      {(() => {
-                        const itemIndex = marketSuggestions.length;
-                        const selected = highlightIndex === itemIndex;
-                        return (
-                          <ListItemButton
-                            selected={selected}
-                            onMouseEnter={() => setHighlightIndex(itemIndex)}
-                            onMouseDown={(ev) => ev.preventDefault()}
-                            onClick={() => goToSearch(searchValue)}
-                          >
-                            <ListItemText
-                              primary={
-                                <Typography variant="body2">
-                                  Search for “{searchValue.trim()}”
-                                </Typography>
-                              }
-                            />
-                          </ListItemButton>
-                        );
-                      })()}
-                    </>
-                  )}
-                </List>
-              </Paper>
-            </Popper>
-          </Box>
-
-          {/* RIGHT: auth buttons (desktop/tablet ONLY) */}
-          {!isMobile && (
             <Box
               sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                flex: "0 0 auto",
+                width: {
+                  xs: "100%",
+                  sm: 520,
+                  md: 620,
+                  lg: 680,
+                },
+                maxWidth: "100%",
               }}
             >
-              <Button component={RouterLink} to="/login" variant="text">
-                Log in
-              </Button>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search markets"
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setHighlightIndex(0);
+                }}
+                onFocus={() => setOpen(true)}
+                onBlur={() => {
+                  // Delay to allow click selection inside popper
+                  window.setTimeout(() => setOpen(false), 120);
+                }}
+                onKeyDown={onKeyDown}
+                inputRef={inputRef}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    height: searchHeight,
+                    borderRadius: searchRadius,
+                    bgcolor: "rgba(17,24,39,0.04)",
+                    border: "1px solid rgba(17,24,39,0.14)",
+                    "&:hover": {
+                      bgcolor: "rgba(17,24,39,0.06)",
+                      borderColor: "rgba(17,24,39,0.22)",
+                    },
+                    "&.Mui-focused": {
+                      bgcolor: "rgba(17,24,39,0.06)",
+                      borderColor: "rgba(17,24,39,0.32)",
+                    },
+                    "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+                  },
+                }}
+              />
 
-              <Button component={RouterLink} to="/signup" variant="contained">
-                Sign up
-              </Button>
+              <Popper
+                open={open && selectable.length > 0}
+                anchorEl={anchorRef.current}
+                placement="bottom-start"
+                sx={{ zIndex: 1400, width: "100%", mt: 1 }}
+              >
+                <Paper
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 2,
+                    overflow: "hidden",
+                  }}
+                >
+                  <List dense disablePadding>
+                    {selectable.map((item, idx) => {
+                      const selected = idx === highlightIndex;
+                      const primary = item.label;
+                      const secondary =
+                        item.type === "market" ? item.sublabel : item.type === "recent" ? "Recent search" : "";
+
+                      return (
+                        <ListItemButton
+                          key={`${item.type}-${item.type === "market" ? item.id : item.q}-${idx}`}
+                          selected={selected}
+                          onMouseEnter={() => setHighlightIndex(idx)}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            if (item.type === "market") goToMarket(item.id);
+                            if (item.type === "recent") goToSearch(item.q);
+                            if (item.type === "search") goToSearch(item.q);
+                          }}
+                        >
+                          <ListItemText
+                            primary={
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                {primary}
+                              </Typography>
+                            }
+                            secondary={
+                              secondary ? (
+                                <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                                  {secondary}
+                                </Typography>
+                              ) : null
+                            }
+                          />
+                        </ListItemButton>
+                      );
+                    })}
+                  </List>
+                </Paper>
+              </Popper>
             </Box>
-          )}
+          </Box>
+
+          {/* RIGHT: auth CTAs */}
+          <Box sx={{ display: "flex", gap: 1, flex: "0 0 auto" }}>
+            {!isMobile && (
+              <>
+                <Button component={RouterLink} to="/login" variant="text">
+                  Log in
+                </Button>
+
+                <Button component={RouterLink} to="/signup" variant="contained">
+                  Sign up
+                </Button>
+              </>
+            )}
+          </Box>
         </Box>
       </Toolbar>
     </AppBar>

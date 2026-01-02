@@ -1,4 +1,3 @@
-// src/components/ResponsiveTrade.tsx
 import { Drawer, Fab, Box, IconButton, Typography, useMediaQuery, useTheme } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
@@ -10,35 +9,23 @@ export function ResponsiveTrade({
   marketId,
   yesPrice,
   orderBook,
-  isTradingDisabled,
-  tradingDisabledReason,
   presetKey,
   preset,
 }: {
   marketId: string;
   yesPrice: number;
   orderBook?: OrderBook;
-  isTradingDisabled?: boolean;
-  tradingDisabledReason?: string;
   presetKey?: number;
   preset?: TradePreset;
 }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
+  const hasBottomNav = useMediaQuery(theme.breakpoints.down("md"));
+  const fabBottom = hasBottomNav ? 80 : 16; // avoid overlap with mobile bottom nav
   const [open, setOpen] = useState(false);
 
   if (!isMobile) {
-    return (
-      <TradePanel
-        marketId={marketId}
-        yesPrice={yesPrice}
-        orderBook={orderBook}
-        isTradingDisabled={isTradingDisabled}
-        tradingDisabledReason={tradingDisabledReason}
-        presetKey={presetKey}
-        preset={preset}
-      />
-    );
+    return <TradePanel marketId={marketId} yesPrice={yesPrice} orderBook={orderBook} />;
   }
 
   return (
@@ -47,7 +34,7 @@ export function ResponsiveTrade({
         color="primary"
         variant="extended"
         onClick={() => setOpen(true)}
-        sx={{ position: "fixed", right: 16, bottom: 16, zIndex: 1400 }}
+        sx={{ position: "fixed", right: 16, bottom: fabBottom, zIndex: 1400 }}
       >
         <SwapVertIcon sx={{ mr: 1 }} />
         Trade
@@ -87,8 +74,6 @@ export function ResponsiveTrade({
             marketId={marketId}
             yesPrice={yesPrice}
             orderBook={orderBook}
-            isTradingDisabled={isTradingDisabled}
-            tradingDisabledReason={tradingDisabledReason}
             onRequestClose={() => setOpen(false)}
             presetKey={presetKey}
             preset={preset}
