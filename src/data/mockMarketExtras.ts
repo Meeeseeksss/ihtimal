@@ -1,3 +1,4 @@
+// src/data/mockMarketExtras.ts
 export type TimeRangeKey = "1H" | "1D" | "1W" | "ALL";
 
 export type PricePoint = {
@@ -42,17 +43,47 @@ export const mockHistoryByMarketId: Record<string, Record<TimeRangeKey, PricePoi
     "1W": genSeries(24 * 7, 0.46),
     "ALL": genSeries(24 * 30, 0.40),
   },
-  "election-x-2026": {
+  "eth-etf-approval-2025": {
+    "1H": genSeries(1, 0.67),
+    "1D": genSeries(24, 0.66),
+    "1W": genSeries(24 * 7, 0.64),
+    "ALL": genSeries(24 * 30, 0.58),
+  },
+  "candidate-x-2026-election": {
     "1H": genSeries(1, 0.57),
     "1D": genSeries(24, 0.55),
     "1W": genSeries(24 * 7, 0.58),
     "ALL": genSeries(24 * 30, 0.52),
   },
-  "sports-final-2026": {
+  "eu-ai-act-2025": {
+    "1H": genSeries(1, 0.48),
+    "1D": genSeries(24, 0.49),
+    "1W": genSeries(24 * 7, 0.47),
+    "ALL": genSeries(24 * 30, 0.45),
+  },
+  "world-cup-2026-team-a": {
     "1H": genSeries(1, 0.31),
     "1D": genSeries(24, 0.33),
     "1W": genSeries(24 * 7, 0.36),
     "ALL": genSeries(24 * 30, 0.29),
+  },
+  "champions-league-2025-team-b": {
+    "1H": genSeries(1, 0.36),
+    "1D": genSeries(24, 0.37),
+    "1W": genSeries(24 * 7, 0.35),
+    "ALL": genSeries(24 * 30, 0.33),
+  },
+  "fed-rate-cut-2025": {
+    "1H": genSeries(1, 0.54),
+    "1D": genSeries(24, 0.53),
+    "1W": genSeries(24 * 7, 0.56),
+    "ALL": genSeries(24 * 30, 0.49),
+  },
+  "btc-halving-impact-2025": {
+    "1H": genSeries(1, 0.67),
+    "1D": genSeries(24, 0.66),
+    "1W": genSeries(24 * 7, 0.64),
+    "ALL": genSeries(24 * 30, 0.61),
   },
 };
 
@@ -73,7 +104,23 @@ export const mockOrderBookByMarketId: Record<string, OrderBook> = {
       { price: 0.395, qty: 2100 },
     ],
   },
-  "election-x-2026": {
+  "eth-etf-approval-2025": {
+    asks: [
+      { price: 0.676, qty: 1800 },
+      { price: 0.682, qty: 2300 },
+      { price: 0.691, qty: 2000 },
+      { price: 0.704, qty: 1500 },
+      { price: 0.721, qty: 1200 },
+    ],
+    bids: [
+      { price: 0.667, qty: 2600 },
+      { price: 0.661, qty: 2200 },
+      { price: 0.654, qty: 3100 },
+      { price: 0.647, qty: 1900 },
+      { price: 0.633, qty: 1700 },
+    ],
+  },
+  "candidate-x-2026-election": {
     asks: [
       { price: 0.586, qty: 1400 },
       { price: 0.593, qty: 2100 },
@@ -89,7 +136,23 @@ export const mockOrderBookByMarketId: Record<string, OrderBook> = {
       { price: 0.536, qty: 1700 },
     ],
   },
-  "sports-final-2026": {
+  "eu-ai-act-2025": {
+    asks: [
+      { price: 0.492, qty: 1100 },
+      { price: 0.498, qty: 1600 },
+      { price: 0.506, qty: 1400 },
+      { price: 0.517, qty: 1200 },
+      { price: 0.534, qty: 900 },
+    ],
+    bids: [
+      { price: 0.484, qty: 1700 },
+      { price: 0.477, qty: 1800 },
+      { price: 0.469, qty: 2100 },
+      { price: 0.458, qty: 1500 },
+      { price: 0.442, qty: 1200 },
+    ],
+  },
+  "world-cup-2026-team-a": {
     asks: [
       { price: 0.326, qty: 900 },
       { price: 0.334, qty: 1100 },
@@ -103,6 +166,54 @@ export const mockOrderBookByMarketId: Record<string, OrderBook> = {
       { price: 0.294, qty: 1000 },
       { price: 0.288, qty: 900 },
       { price: 0.275, qty: 800 },
+    ],
+  },
+  "champions-league-2025-team-b": {
+    asks: [
+      { price: 0.372, qty: 950 },
+      { price: 0.379, qty: 1100 },
+      { price: 0.386, qty: 900 },
+      { price: 0.397, qty: 820 },
+      { price: 0.414, qty: 700 },
+    ],
+    bids: [
+      { price: 0.361, qty: 1300 },
+      { price: 0.354, qty: 1450 },
+      { price: 0.346, qty: 1200 },
+      { price: 0.337, qty: 900 },
+      { price: 0.322, qty: 850 },
+    ],
+  },
+  "fed-rate-cut-2025": {
+    asks: [
+      { price: 0.551, qty: 1500 },
+      { price: 0.558, qty: 1900 },
+      { price: 0.566, qty: 1700 },
+      { price: 0.578, qty: 1400 },
+      { price: 0.595, qty: 1100 },
+    ],
+    bids: [
+      { price: 0.542, qty: 2300 },
+      { price: 0.535, qty: 2100 },
+      { price: 0.527, qty: 2400 },
+      { price: 0.516, qty: 1800 },
+      { price: 0.501, qty: 1600 },
+    ],
+  },
+  "btc-halving-impact-2025": {
+    asks: [
+      { price: 0.681, qty: 2200 },
+      { price: 0.688, qty: 2400 },
+      { price: 0.695, qty: 2100 },
+      { price: 0.707, qty: 1700 },
+      { price: 0.723, qty: 1500 },
+    ],
+    bids: [
+      { price: 0.672, qty: 2800 },
+      { price: 0.664, qty: 2600 },
+      { price: 0.657, qty: 3100 },
+      { price: 0.648, qty: 2000 },
+      { price: 0.635, qty: 1800 },
     ],
   },
 };
@@ -131,8 +242,8 @@ export const mockPositions: Position[] = [
   },
   {
     id: "pos-2",
-    marketId: "election-x-2026",
-    question: "Will Candidate X win the 2026 election?",
+    marketId: "candidate-x-2026-election",
+    question: "Will Candidate X win the 2026 national election?",
     side: "NO",
     shares: 150,
     avgPrice: 0.44,
@@ -141,8 +252,8 @@ export const mockPositions: Position[] = [
   },
   {
     id: "pos-3",
-    marketId: "sports-final-2026",
-    question: "Will Team A win the 2026 final?",
+    marketId: "world-cup-2026-team-a",
+    question: "Will Team A win the 2026 World Cup?",
     side: "YES",
     shares: 80,
     avgPrice: 0.35,
@@ -203,8 +314,13 @@ function genTrades(marketId: string, baseYes: number): RecentTrade[] {
 
 export const mockSeedRecentTradesByMarketId: Record<string, RecentTrade[]> = {
   "btc-100k-2026": genTrades("btc-100k-2026", 0.42),
-  "election-x-2026": genTrades("election-x-2026", 0.57),
-  "sports-final-2026": genTrades("sports-final-2026", 0.31),
+  "eth-etf-approval-2025": genTrades("eth-etf-approval-2025", 0.67),
+  "candidate-x-2026-election": genTrades("candidate-x-2026-election", 0.57),
+  "eu-ai-act-2025": genTrades("eu-ai-act-2025", 0.48),
+  "world-cup-2026-team-a": genTrades("world-cup-2026-team-a", 0.31),
+  "champions-league-2025-team-b": genTrades("champions-league-2025-team-b", 0.36),
+  "fed-rate-cut-2025": genTrades("fed-rate-cut-2025", 0.54),
+  "btc-halving-impact-2025": genTrades("btc-halving-impact-2025", 0.67),
 };
 
 export type OpenOrder = {
@@ -236,7 +352,7 @@ export const mockSeedOpenOrders: OpenOrder[] = [
   },
   {
     id: "ord-2",
-    marketId: "election-x-2026",
+    marketId: "candidate-x-2026-election",
     action: "SELL",
     side: "NO",
     type: "LIMIT",

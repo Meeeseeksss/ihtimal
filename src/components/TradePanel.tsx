@@ -1,3 +1,4 @@
+// src/components/TradePanel.tsx
 import {
   Box,
   Button,
@@ -63,6 +64,8 @@ export function TradePanel({
   marketId,
   yesPrice,
   orderBook,
+  isTradingDisabled,
+  tradingDisabledReason,
   onRequestClose,
   presetKey,
   preset,
@@ -70,6 +73,11 @@ export function TradePanel({
   marketId: string;
   yesPrice: number;
   orderBook?: OrderBook;
+
+  /** When true, the ticket becomes non-submittable (e.g. HALTED / RESOLVED). */
+  isTradingDisabled?: boolean;
+  /** Optional copy shown when trading is disabled. */
+  tradingDisabledReason?: string;
 
   onRequestClose?: () => void;
 
@@ -79,8 +87,15 @@ export function TradePanel({
   const notify = useNotify();
 
   const walletCashUsd = useAccountStore((s) => s.walletCashUsd);
-  const posYes = useAccountStore((s) => s.positions.find((p) => p.marketId === marketId && p.side === "YES" && p.status === "OPEN") ?? null);
-  const posNo = useAccountStore((s) => s.positions.find((p) => p.marketId === marketId && p.side === "NO" && p.status === "OPEN") ?? null);
+  const posYes = useAccountStore(
+    (s) => s.positions.find((p) => p.marketId === marketId && p.side === "YES" && p.status === "OPEN") ?? null
+  );
+  const posNo = useAccountStore(
+    (s) => s.positions.find((p) => p.marketId === marketId && p.side === "NO" && p.status === "OPEN") ?? null
+  );
+
+  const hardDisabled = Boolean(isTradingDisabled);
+  const hardDisabledMsg = tradingDisabledReason ?? "Trading is unavailable";
 
   const [action, setAction] = useState<Action>("BUY");
   const [side, setSide] = useState<Side>("YES");
@@ -89,7 +104,9 @@ export function TradePanel({
 
   const [usd, setUsd] = useState("25");
   const [sharesInput, setSharesInput] = useState("");
-  const [limitCents, setLimitCents] = useState(String(Math.round((side === "YES" ? yesPrice : 1 - yesPrice) * 100)));
+  const [limitCents, setLimitCents] = useState(
+    String(Math.round((side === "YES" ? yesPrice : 1 - yesPrice) * 100))
+  );
 
   const [openConfirm, setOpenConfirm] = useState(false);
 
@@ -141,8 +158,14 @@ export function TradePanel({
   const notionalUsd = useMemo(() => shares * execSidePrice, [shares, execSidePrice]);
   const feeUsd = useMemo(() => estimateFee(notionalUsd), [notionalUsd]);
 
-  const totalCostUsd = useMemo(() => (action === "BUY" ? notionalUsd + feeUsd : undefined), [action, notionalUsd, feeUsd]);
-  const netProceedsUsd = useMemo(() => (action === "SELL" ? Math.max(0, notionalUsd - feeUsd) : undefined), [action, notionalUsd, feeUsd]);
+  const totalCostUsd = useMemo(
+    () => (action === "BUY" ? notionalUsd + feeUsd : undefined),
+    [action, notionalUsd, feeUsd]
+  );
+  const netProceedsUsd = useMemo(
+    () => (action === "SELL" ? Math.max(0, notionalUsd - feeUsd) : undefined),
+    [action, notionalUsd, feeUsd]
+  );
 
   const positionSharesBefore = useMemo(() => {
     if (side === "YES") return posYes?.shares ?? 0;
@@ -150,9 +173,11 @@ export function TradePanel({
   }, [side, posYes, posNo]);
 
   const disabledReason = useMemo(() => {
+    if (hardDisabled) return hardDisabledMsg;
     if (!Number.isFinite(shares) || shares <= 0) return "Enter an amount";
     if (orderType === "LIMIT") {
-      if (!Number.isFinite(limitSidePrice) || limitSidePrice <= 0 || limitSidePrice >= 1) return "Enter a valid limit price";
+      if (!Number.isFinite(limitSidePrice) || limitSidePrice <= 0 || limitSidePrice >= 1)
+        return "Enter a valid limit price";
     }
     if (action === "BUY") {
       if (totalCostUsd != null && totalCostUsd > walletCashUsd + 1e-9) return "Insufficient balance";
@@ -161,9 +186,22 @@ export function TradePanel({
       if (shares > positionSharesBefore + 1e-9) return "Not enough shares";
     }
     return null;
-  }, [shares, orderType, limitSidePrice, action, totalCostUsd, walletCashUsd, positionSharesBefore, side]);
+  }, [
+    hardDisabled,
+    hardDisabledMsg,
+    shares,
+    orderType,
+    limitSidePrice,
+    action,
+    totalCostUsd,
+    walletCashUsd,
+    positionSharesBefore,
+    side,
+  ]);
 
   function handleMax() {
+    if (hardDisabled) return;
+
     if (action === "BUY") {
       const maxNotional = maxNotionalForBalance(walletCashUsd);
       if (amountMode === "USD") {
@@ -213,13 +251,20 @@ export function TradePanel({
             onChange={(_, v) => v && setAction(v)}
             fullWidth
             size="small"
+            disabled={hardDisabled}
           >
             <ToggleButton value="BUY">Buy</ToggleButton>
             <ToggleButton value="SELL">Sell</ToggleButton>
           </ToggleButtonGroup>
 
           {/* YES / NO */}
-          <ToggleButtonGroup value={side} exclusive onChange={(_, v) => v && setSide(v)} fullWidth>
+          <ToggleButtonGroup
+            value={side}
+            exclusive
+            onChange={(_, v) => v && setSide(v)}
+            fullWidth
+            disabled={hardDisabled}
+          >
             <ToggleButton value="YES" color="success">
               {action === "BUY" ? "YES" : "Sell YES"}
             </ToggleButton>
@@ -235,6 +280,7 @@ export function TradePanel({
             onChange={(_, v) => v && setOrderType(v)}
             fullWidth
             size="small"
+            disabled={hardDisabled}
           >
             <ToggleButton value="MARKET">Market</ToggleButton>
             <ToggleButton value="LIMIT">Limit</ToggleButton>
@@ -247,6 +293,7 @@ export function TradePanel({
             onChange={(_, v) => v && setAmountMode(v)}
             fullWidth
             size="small"
+            disabled={hardDisabled}
           >
             <ToggleButton value="USD">$</ToggleButton>
             <ToggleButton value="SHARES">Shares</ToggleButton>
@@ -261,6 +308,7 @@ export function TradePanel({
                 onChange={(e) => setUsd(e.target.value)}
                 fullWidth
                 inputMode="decimal"
+                disabled={hardDisabled}
                 InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               />
             ) : (
@@ -270,10 +318,16 @@ export function TradePanel({
                 onChange={(e) => setSharesInput(e.target.value)}
                 fullWidth
                 inputMode="decimal"
+                disabled={hardDisabled}
               />
             )}
 
-            <Button variant="outlined" onClick={handleMax} sx={{ width: 92, flex: "0 0 auto" }}>
+            <Button
+              variant="outlined"
+              onClick={handleMax}
+              disabled={hardDisabled}
+              sx={{ width: 92, flex: "0 0 auto" }}
+            >
               Max
             </Button>
 
@@ -284,6 +338,7 @@ export function TradePanel({
                 onChange={(e) => setLimitCents(e.target.value)}
                 sx={{ width: 140 }}
                 inputMode="numeric"
+                disabled={hardDisabled}
               />
             )}
           </Stack>
@@ -304,12 +359,18 @@ export function TradePanel({
             <Row label="Shares" value={shares.toFixed(2)} />
             <Row label="Notional" value={`$${notionalUsd.toFixed(2)}`} />
             <Row label="Fee (est.)" value={`$${feeUsd.toFixed(2)}`} />
-            {action === "BUY" && totalCostUsd != null && <Row label="Total cost" value={`$${totalCostUsd.toFixed(2)}`} />}
-            {action === "SELL" && netProceedsUsd != null && <Row label="Net proceeds" value={`$${netProceedsUsd.toFixed(2)}`} />}
+            {action === "BUY" && totalCostUsd != null && (
+              <Row label="Total cost" value={`$${totalCostUsd.toFixed(2)}`} />
+            )}
+            {action === "SELL" && netProceedsUsd != null && (
+              <Row label="Net proceeds" value={`$${netProceedsUsd.toFixed(2)}`} />
+            )}
           </Box>
 
-          <Alert severity="info" variant="outlined">
-            Market fills immediately. Limit becomes an open order (mock). Contracts pay $1 if correct, $0 otherwise.
+          <Alert severity={hardDisabled ? "warning" : "info"} variant="outlined">
+            {hardDisabled
+              ? hardDisabledMsg
+              : "Market fills immediately. Limit becomes an open order (mock). Contracts pay $1 if correct, $0 otherwise."}
           </Alert>
 
           <Button

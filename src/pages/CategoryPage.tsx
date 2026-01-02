@@ -76,6 +76,8 @@ export function CategoryPage() {
           onChange={(next) => setFilters({ ...next, category: parsedCategory })}
           sort={sort}
           onSortChange={setSort}
+          // disableCategory
+          // resultCount={isLoading ? undefined : filteredAndSorted.length}
         />
       </Box>
 

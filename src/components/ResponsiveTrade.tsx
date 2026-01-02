@@ -1,3 +1,4 @@
+// src/components/ResponsiveTrade.tsx
 import { Drawer, Fab, Box, IconButton, Typography, useMediaQuery, useTheme } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
@@ -9,12 +10,16 @@ export function ResponsiveTrade({
   marketId,
   yesPrice,
   orderBook,
+  isTradingDisabled,
+  tradingDisabledReason,
   presetKey,
   preset,
 }: {
   marketId: string;
   yesPrice: number;
   orderBook?: OrderBook;
+  isTradingDisabled?: boolean;
+  tradingDisabledReason?: string;
   presetKey?: number;
   preset?: TradePreset;
 }) {
@@ -28,6 +33,8 @@ export function ResponsiveTrade({
         marketId={marketId}
         yesPrice={yesPrice}
         orderBook={orderBook}
+        isTradingDisabled={isTradingDisabled}
+        tradingDisabledReason={tradingDisabledReason}
         presetKey={presetKey}
         preset={preset}
       />
@@ -80,6 +87,8 @@ export function ResponsiveTrade({
             marketId={marketId}
             yesPrice={yesPrice}
             orderBook={orderBook}
+            isTradingDisabled={isTradingDisabled}
+            tradingDisabledReason={tradingDisabledReason}
             onRequestClose={() => setOpen(false)}
             presetKey={presetKey}
             preset={preset}
