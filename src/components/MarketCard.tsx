@@ -31,6 +31,8 @@ function usd(n: number) {
 const CARD_HEIGHT = 240;
 const TITLE_LINES = 3;
 const TITLE_LINE_HEIGHT = 1.3;
+const THUMB_SIZE = 44;
+const WATCH_BUTTON_SPACE_PX = 52; // keeps text from tucking under the top-right star
 
 export function MarketCard({
   market,
@@ -80,7 +82,11 @@ export function MarketCard({
             }}
             aria-label={watched ? "Unwatch market" : "Watch market"}
           >
-            {watched ? <StarRoundedIcon fontSize="small" /> : <StarBorderRoundedIcon fontSize="small" />}
+            {watched ? (
+              <StarRoundedIcon fontSize="small" />
+            ) : (
+              <StarBorderRoundedIcon fontSize="small" />
+            )}
           </IconButton>
         </Tooltip>
       </Box>
@@ -93,24 +99,42 @@ export function MarketCard({
           gap: 1,
           minWidth: 0,
           pt: 2.25,
+          pr: `${WATCH_BUTTON_SPACE_PX}px`,
         }}
       >
-        <Typography
-          variant="body1"
-          sx={{
-            fontWeight: 700,
-            lineHeight: TITLE_LINE_HEIGHT,
-            display: "-webkit-box",
-            WebkitLineClamp: TITLE_LINES,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            height: `${TITLE_LINES * TITLE_LINE_HEIGHT}em`,
-            minWidth: 0,
-          }}
-        >
-          {market.question}
-        </Typography>
+        {/* Top row: placeholder image + title (clamped). */}
+        <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start", minWidth: 0 }}>
+          <Box
+            aria-hidden
+            sx={{
+              width: THUMB_SIZE,
+              height: THUMB_SIZE,
+              borderRadius: 2,
+              bgcolor: "action.hover",
+              border: "1px solid",
+              borderColor: "divider",
+              flex: "0 0 auto",
+            }}
+          />
+
+          <Typography
+            variant="body1"
+            sx={{
+              fontWeight: 700,
+              lineHeight: TITLE_LINE_HEIGHT,
+              display: "-webkit-box",
+              WebkitLineClamp: TITLE_LINES,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              height: `${TITLE_LINES * TITLE_LINE_HEIGHT}em`,
+              minWidth: 0,
+              flex: "1 1 auto",
+            }}
+          >
+            {market.question}
+          </Typography>
+        </Box>
 
         <Box sx={{ minWidth: 0 }}>
           <Typography
@@ -121,10 +145,22 @@ export function MarketCard({
           >
             YES {pct(market.yesPrice)}%
           </Typography>
-          <LinearProgress variant="determinate" value={pct(market.yesPrice)} sx={{ height: 6, borderRadius: 999 }} />
+          <LinearProgress
+            variant="determinate"
+            value={pct(market.yesPrice)}
+            sx={{ height: 6, borderRadius: 999 }}
+          />
         </Box>
 
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1, minWidth: 0 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 1,
+            minWidth: 0,
+          }}
+        >
           <Typography variant="body2" sx={{ fontWeight: 700, flex: "0 0 auto", minWidth: 0 }}>
             {pct(market.yesPrice)}¢
           </Typography>
@@ -133,7 +169,13 @@ export function MarketCard({
             variant="caption"
             color="text.secondary"
             noWrap
-            sx={{ flex: "1 1 auto", textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}
+            sx={{
+              flex: "1 1 auto",
+              textAlign: "right",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              minWidth: 0,
+            }}
           >
             Vol {usd(market.volumeUsd)}
           </Typography>

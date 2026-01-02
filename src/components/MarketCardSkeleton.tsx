@@ -2,6 +2,8 @@ import { Card, CardContent, Skeleton, Box } from "@mui/material";
 
 // Match MarketCard overall height so skeletons don't jump.
 const CARD_HEIGHT = 240;
+const THUMB_SIZE = 44;
+const WATCH_BUTTON_SPACE_PX = 52;
 
 export function MarketCardSkeleton() {
   return (
@@ -19,10 +21,23 @@ export function MarketCardSkeleton() {
         borderRadius: 0.125,
       }}
     >
-      <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", gap: 1 }}>
-        <Skeleton variant="text" width="90%" height={26} />
-        <Skeleton variant="text" width="70%" height={26} />
-        <Skeleton variant="text" width="60%" height={26} />
+      <CardContent
+        sx={{
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: 1,
+          pr: `${WATCH_BUTTON_SPACE_PX}px`,
+        }}
+      >
+        <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+          <Skeleton variant="rounded" width={THUMB_SIZE} height={THUMB_SIZE} />
+          <Box sx={{ flex: "1 1 auto", minWidth: 0 }}>
+            <Skeleton variant="text" width="90%" height={26} />
+            <Skeleton variant="text" width="70%" height={26} />
+            <Skeleton variant="text" width="60%" height={26} />
+          </Box>
+        </Box>
 
         <Box sx={{ mt: 0.5 }}>
           <Skeleton variant="text" width="30%" height={18} />
