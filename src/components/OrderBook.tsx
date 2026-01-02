@@ -1,3 +1,4 @@
+// src/components/OrderBook.tsx
 import { Box, Divider, Paper, Typography } from "@mui/material";
 import type { OrderBook as OrderBookT, OrderBookLevel } from "../data/mockMarketExtras";
 
@@ -43,8 +44,7 @@ function Row({
           right: side === "ASK" ? 0 : "auto",
           left: side === "BID" ? 0 : "auto",
           width: `${pct}%`,
-          bgcolor:
-            side === "ASK" ? "rgba(217,48,37,0.10)" : "rgba(15,157,88,0.10)",
+          bgcolor: side === "ASK" ? "rgba(217,48,37,0.10)" : "rgba(15,157,88,0.10)",
           pointerEvents: "none",
         }}
       />
@@ -64,7 +64,7 @@ function Row({
   );
 }
 
-export function OrderBook({ book }: { book: OrderBookT }) {
+function OrderBookBody({ book }: { book: OrderBookT }) {
   const bestAsk = book.asks[0]?.price ?? 0;
   const bestBid = book.bids[0]?.price ?? 0;
   const spread = Math.max(0, bestAsk - bestBid);
@@ -76,14 +76,7 @@ export function OrderBook({ book }: { book: OrderBookT }) {
   const bidTotal = totalQty(book.bids);
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <Typography variant="h6">Order book</Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          Spread: <b>{Math.round(spread * 100)}¢</b>
-        </Typography>
-      </Box>
-
+    <>
       <Divider sx={{ my: 1.25 }} />
 
       <Box sx={{ display: "grid", gap: 0.5 }}>
@@ -111,6 +104,41 @@ export function OrderBook({ book }: { book: OrderBookT }) {
           Total bid liquidity: <b>{bidTotal.toLocaleString()}</b> shares
         </Typography>
       </Box>
+
+      {/* keep spread available for parents that render headers */}
+      <Box sx={{ display: "none" }} data-spread-cents={Math.round(spread * 100)} />
+    </>
+  );
+}
+
+export function OrderBook({
+  book,
+  embedded = false,
+}: {
+  book: OrderBookT;
+  embedded?: boolean;
+}) {
+  const bestAsk = book.asks[0]?.price ?? 0;
+  const bestBid = book.bids[0]?.price ?? 0;
+  const spread = Math.max(0, bestAsk - bestBid);
+
+  if (embedded) {
+    return (
+      <Box sx={{ width: "100%" }}>
+        <OrderBookBody book={book} />
+      </Box>
+    );
+  }
+
+  return (
+    <Paper sx={{ p: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <Typography variant="h6">Order book</Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Spread: <b>{Math.round(spread * 100)}¢</b>
+        </Typography>
+      </Box>
+      <OrderBookBody book={book} />
     </Paper>
   );
 }

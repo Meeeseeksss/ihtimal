@@ -1,3 +1,4 @@
+// src/components/RecentTrades.tsx
 import { Box, Divider, Paper, Stack, Typography, Chip } from "@mui/material";
 import type { RecentTrade } from "../data/mockMarketExtras";
 
@@ -7,16 +8,13 @@ function fmtTime(ts: number) {
 }
 
 export function RecentTrades({ trades }: { trades: RecentTrade[] }) {
-  return (
-    <Paper sx={{ p: 2 }}>
-      <Stack spacing={0.75}>
-        <Typography variant="h6">Recent trades</Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          Time & sales (mock)
-        </Typography>
-      </Stack>
+  return <RecentTradesBase trades={trades} />;
+}
 
-      <Divider sx={{ my: 1.25 }} />
+function RecentTradesBase({ trades, embedded = false }: { trades: RecentTrade[]; embedded?: boolean }) {
+  const content = (
+    <>
+      {!embedded ? null : <Divider sx={{ my: 1.25 }} />}
 
       <Box sx={{ display: "grid", gap: 0.75 }}>
         {trades.length === 0 ? (
@@ -27,14 +25,24 @@ export function RecentTrades({ trades }: { trades: RecentTrade[] }) {
           trades.slice(0, 16).map((t) => (
             <Box
               key={t.id}
-              sx={{ display: "grid", gridTemplateColumns: "90px 1fr 90px 90px", gap: 1, alignItems: "center" }}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "90px 1fr 90px 90px",
+                gap: 1,
+                alignItems: "center",
+              }}
             >
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {fmtTime(t.ts)}
               </Typography>
 
               <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <Chip size="small" label={t.side} color={t.side === "YES" ? "primary" : "error"} variant="outlined" />
+                <Chip
+                  size="small"
+                  label={t.side}
+                  color={t.side === "YES" ? "primary" : "error"}
+                  variant="outlined"
+                />
                 <Typography variant="body2" sx={{ fontWeight: 800 }}>
                   {Math.round(t.price * 100)}¢
                 </Typography>
@@ -51,6 +59,26 @@ export function RecentTrades({ trades }: { trades: RecentTrade[] }) {
           ))
         )}
       </Box>
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <Paper sx={{ p: 2 }}>
+      <Stack spacing={0.75}>
+        <Typography variant="h6">Recent trades</Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Time & sales (mock)
+        </Typography>
+      </Stack>
+      <Divider sx={{ my: 1.25 }} />
+      {content}
     </Paper>
   );
+}
+
+// Keep API stable while enabling embedded rendering.
+export function RecentTradesEmbedded({ trades }: { trades: RecentTrade[] }) {
+  return <RecentTradesBase trades={trades} embedded />;
 }

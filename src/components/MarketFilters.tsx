@@ -100,7 +100,7 @@ export function MarketFilters({
           >
             {typeof resultCount === "number" && (
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {resultCount.toLocaleString()} result{resultCount === 1 ? "" : "s"}
+                {resultCount.toLocaleString()} market{resultCount === 1 ? "" : "s"}
               </Typography>
             )}
 

@@ -1,7 +1,19 @@
 // src/pages/MarketDetailPage.tsx
-import { Box, Chip, Divider, Link, Paper, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  ButtonBase,
+  Chip,
+  Collapse,
+  Divider,
+  Link,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { useMemo, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
+
 import { mockMarkets } from "../data/mockMarkets";
 import { PriceChart } from "../components/PriceChart";
 import { OrderBook } from "../components/OrderBook";
@@ -12,7 +24,7 @@ import {
   type TimeRangeKey,
 } from "../data/mockMarketExtras";
 import { CategoryBadge } from "../components/CategoryBadge";
-import { RecentTrades } from "../components/RecentTrades";
+import { RecentTradesEmbedded } from "../components/RecentTrades";
 import { OpenOrdersPanel } from "../components/OpenOrdersPanel";
 import { PositionWidget } from "../components/PositionWidget";
 import { accountActions, useAccountStore } from "../data/accountStore";
@@ -22,6 +34,10 @@ export function MarketDetailPage() {
   const { id } = useParams();
   const market = useMemo(() => mockMarkets.find((m) => m.id === id), [id]);
   const [range, setRange] = useState<TimeRangeKey>("1D");
+
+  // Compact by default; expand on demand.
+  const [orderBookOpen, setOrderBookOpen] = useState(false);
+  const [recentTradesOpen, setRecentTradesOpen] = useState(false);
 
   const [presetKey, setPresetKey] = useState(0);
   const [preset, setPreset] = useState<
@@ -46,6 +62,10 @@ export function MarketDetailPage() {
   const seriesByRange = mockHistoryByMarketId[market.id];
   const book = mockOrderBookByMarketId[market.id];
   const details = mockMarketDetailsById[market.id];
+
+  const bestAsk = book?.asks[0]?.price ?? 0;
+  const bestBid = book?.bids[0]?.price ?? 0;
+  const spread = Math.max(0, bestAsk - bestBid);
 
   const tradingDisabled = market.status !== "TRADING";
   const disabledReason =
@@ -207,8 +227,58 @@ export function MarketDetailPage() {
             ) : null}
           </Paper>
 
+          {/* Order book (collapsed by default) */}
           {book ? (
-            <OrderBook book={book} />
+            <Paper sx={{ p: 2 }}>
+              <ButtonBase
+                onClick={() => setOrderBookOpen((v) => !v)}
+                sx={{
+                  width: "100%",
+                  borderRadius: 1.5,
+                  textAlign: "left",
+                }}
+              >
+                <Box
+                  sx={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: 1,
+                  }}
+                >
+                  <Box sx={{ display: "grid", gap: 0.25, minWidth: 0 }}>
+                    <Typography variant="h6">Order book</Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "text.secondary",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      Spread <b>{Math.round(spread * 100)}¢</b> • Best bid <b>{Math.round(bestBid * 100)}¢</b> • Best ask{" "}
+                      <b>{Math.round(bestAsk * 100)}¢</b>
+                    </Typography>
+                  </Box>
+
+                  <ExpandMoreRoundedIcon
+                    sx={{
+                      mt: 0.35,
+                      transition: "transform 160ms ease",
+                      transform: orderBookOpen ? "rotate(180deg)" : "rotate(0deg)",
+                      color: "text.secondary",
+                      flex: "0 0 auto",
+                    }}
+                  />
+                </Box>
+              </ButtonBase>
+
+              <Collapse in={orderBookOpen} timeout="auto" unmountOnExit>
+                <OrderBook book={book} embedded />
+              </Collapse>
+            </Paper>
           ) : (
             <Paper sx={{ p: 2 }}>
               <Typography variant="h6">Order book</Typography>
@@ -219,7 +289,60 @@ export function MarketDetailPage() {
             </Paper>
           )}
 
-          <RecentTrades trades={recentTrades} />
+          {/* Recent trades (collapsed by default) */}
+          <Paper sx={{ p: 2 }}>
+            <ButtonBase
+              onClick={() => setRecentTradesOpen((v) => !v)}
+              sx={{
+                width: "100%",
+                borderRadius: 1.5,
+                textAlign: "left",
+              }}
+            >
+              <Box
+                sx={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 1,
+                }}
+              >
+                <Box sx={{ display: "grid", gap: 0.25, minWidth: 0 }}>
+                  <Typography variant="h6">Recent trades</Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "text.secondary",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {recentTrades.length === 0
+                      ? "No recent trades"
+                      : `${recentTrades.length} trades • Latest ${Math.round(recentTrades[0].price * 100)}¢ (${new Date(
+                          recentTrades[0].ts
+                        ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`}
+                  </Typography>
+                </Box>
+
+                <ExpandMoreRoundedIcon
+                  sx={{
+                    mt: 0.35,
+                    transition: "transform 160ms ease",
+                    transform: recentTradesOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    color: "text.secondary",
+                    flex: "0 0 auto",
+                  }}
+                />
+              </Box>
+            </ButtonBase>
+
+            <Collapse in={recentTradesOpen} timeout="auto" unmountOnExit>
+              <RecentTradesEmbedded trades={recentTrades} />
+            </Collapse>
+          </Paper>
         </Stack>
 
         {/* Center: chart */}
