@@ -45,11 +45,13 @@ export function AppShell() {
       for (const m of watchedMarkets) {
         const cfg = alertCfg[m.id];
         if (!cfg) continue;
+
         const hits = evaluateMarketAlerts({
           marketId: m.id,
           question: m.question,
           yesPrice: m.yesPrice,
-          resolvesAt: m.resolvesAt,
+          // ✅ mockMarkets.resolvesAt is ISO string → convert to ms number
+          resolvesAt: Date.parse(m.resolvesAt),
           status: m.status,
           cfg,
           now,
@@ -62,7 +64,7 @@ export function AppShell() {
       }
     }, 30_000);
 
-    return () => window.clearInterval(interval);
+    return () => window.clearTimeout(interval);
   }, [alertCfg, notify, watchedMarkets]);
 
   return (
@@ -71,6 +73,7 @@ export function AppShell() {
         minHeight: "100vh",
         bgcolor: "background.default",
         width: "100%",
+        
       }}
     >
       <TopNav
@@ -78,7 +81,6 @@ export function AppShell() {
         isMobile={isMobile}
         onMenuClick={() => {
           if (isMobile) {
-            // ✅ Toggle open/close on mobile
             setMobileOpen((v) => !v);
           } else {
             setCollapsed((v) => !v);

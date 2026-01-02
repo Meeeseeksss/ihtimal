@@ -12,11 +12,13 @@ import {
   ListItemButton,
   ListItemText,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "@mui/material/styles";
 
 import { mockMarkets } from "../data/mockMarkets";
 import Logo from "../assets/ihtimal-logo.svg";
@@ -55,9 +57,14 @@ export function TopNav({
   onMenuClick,
 }: {
   collapsed: boolean;
-  isMobile: boolean;
+  isMobile: boolean; // used for other layout choices (auth buttons etc.)
   onMenuClick: () => void;
 }) {
+  const theme = useTheme();
+
+  // ✅ Only hide hamburger on true phone widths
+  const hideMenuOnPhone = useMediaQuery(theme.breakpoints.down("sm"));
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -90,7 +97,7 @@ export function TopNav({
     if (!needle) return [];
 
     // Very lightweight “autosuggest” from mockMarkets (no backend)
-    const hits = mockMarkets
+    return mockMarkets
       .filter((m) => m.question.toLowerCase().includes(needle))
       .slice(0, 7)
       .map<SearchItem>((m) => ({
@@ -99,8 +106,6 @@ export function TopNav({
         label: m.question,
         sublabel: `${m.category} • YES ${Math.round(m.yesPrice * 100)}%`,
       }));
-
-    return hits;
   }, [q]);
 
   const selectable = useMemo(() => {
@@ -115,10 +120,7 @@ export function TopNav({
       return out;
     }
 
-    // Markets first
     out.push(...matches);
-
-    // “Search for …” action
     out.push({ type: "search", q: needle, label: `Search markets for "${needle}"` });
 
     return out;
@@ -220,8 +222,8 @@ export function TopNav({
               flex: "0 0 auto",
             }}
           >
-            {/* Mobile: hide hamburger/menu button entirely (user request). */}
-            {!isMobile ? (
+            {/* ✅ Hide hamburger ONLY on phone */}
+            {!hideMenuOnPhone ? (
               <IconButton
                 onClick={onMenuClick}
                 sx={{
@@ -231,13 +233,7 @@ export function TopNav({
                   height: 40,
                   borderRadius: 999,
                 }}
-                aria-label={
-                  isMobile
-                    ? "Toggle menu"
-                    : collapsed
-                    ? "Expand sidebar"
-                    : "Collapse sidebar"
-                }
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
                 <MenuIcon />
               </IconButton>
@@ -274,12 +270,7 @@ export function TopNav({
           >
             <Box
               sx={{
-                width: {
-                  xs: "100%",
-                  sm: 520,
-                  md: 620,
-                  lg: 680,
-                },
+                width: { xs: "100%", sm: 520, md: 620, lg: 680 },
                 maxWidth: "100%",
               }}
             >
@@ -294,7 +285,6 @@ export function TopNav({
                 }}
                 onFocus={() => setOpen(true)}
                 onBlur={() => {
-                  // Delay to allow click selection inside popper
                   window.setTimeout(() => setOpen(false), 120);
                 }}
                 onKeyDown={onKeyDown}

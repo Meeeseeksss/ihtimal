@@ -9,12 +9,20 @@ export function ResponsiveTrade({
   marketId,
   yesPrice,
   orderBook,
+  isTradingDisabled,
+  tradingDisabledReason,
   presetKey,
   preset,
 }: {
   marketId: string;
   yesPrice: number;
   orderBook?: OrderBook;
+
+  /** When true, disables the ticket (e.g. HALTED / RESOLVED). */
+  isTradingDisabled?: boolean;
+  /** Optional copy shown when trading is disabled. */
+  tradingDisabledReason?: string;
+
   presetKey?: number;
   preset?: TradePreset;
 }) {
@@ -25,7 +33,17 @@ export function ResponsiveTrade({
   const [open, setOpen] = useState(false);
 
   if (!isMobile) {
-    return <TradePanel marketId={marketId} yesPrice={yesPrice} orderBook={orderBook} />;
+    return (
+      <TradePanel
+        marketId={marketId}
+        yesPrice={yesPrice}
+        orderBook={orderBook}
+        isTradingDisabled={isTradingDisabled}
+        tradingDisabledReason={tradingDisabledReason}
+        presetKey={presetKey}
+        preset={preset}
+      />
+    );
   }
 
   return (
@@ -74,6 +92,8 @@ export function ResponsiveTrade({
             marketId={marketId}
             yesPrice={yesPrice}
             orderBook={orderBook}
+            isTradingDisabled={isTradingDisabled}
+            tradingDisabledReason={tradingDisabledReason}
             onRequestClose={() => setOpen(false)}
             presetKey={presetKey}
             preset={preset}

@@ -1,4 +1,3 @@
-// src/components/TradePanel.tsx
 import {
   Box,
   Button,
@@ -74,7 +73,7 @@ export function TradePanel({
   yesPrice: number;
   orderBook?: OrderBook;
 
-  /** When true, the ticket becomes non-submittable (e.g. HALTED / RESOLVED). */
+  /** When true, disables the ticket (e.g. market halted / resolved). */
   isTradingDisabled?: boolean;
   /** Optional copy shown when trading is disabled. */
   tradingDisabledReason?: string;
@@ -93,9 +92,6 @@ export function TradePanel({
   const posNo = useAccountStore(
     (s) => s.positions.find((p) => p.marketId === marketId && p.side === "NO" && p.status === "OPEN") ?? null
   );
-
-  const hardDisabled = Boolean(isTradingDisabled);
-  const hardDisabledMsg = tradingDisabledReason ?? "Trading is unavailable";
 
   const [action, setAction] = useState<Action>("BUY");
   const [side, setSide] = useState<Side>("YES");
@@ -173,7 +169,7 @@ export function TradePanel({
   }, [side, posYes, posNo]);
 
   const disabledReason = useMemo(() => {
-    if (hardDisabled) return hardDisabledMsg;
+    if (isTradingDisabled) return tradingDisabledReason || "Trading disabled";
     if (!Number.isFinite(shares) || shares <= 0) return "Enter an amount";
     if (orderType === "LIMIT") {
       if (!Number.isFinite(limitSidePrice) || limitSidePrice <= 0 || limitSidePrice >= 1)
@@ -187,8 +183,8 @@ export function TradePanel({
     }
     return null;
   }, [
-    hardDisabled,
-    hardDisabledMsg,
+    isTradingDisabled,
+    tradingDisabledReason,
     shares,
     orderType,
     limitSidePrice,
@@ -200,8 +196,6 @@ export function TradePanel({
   ]);
 
   function handleMax() {
-    if (hardDisabled) return;
-
     if (action === "BUY") {
       const maxNotional = maxNotionalForBalance(walletCashUsd);
       if (amountMode === "USD") {
@@ -244,27 +238,12 @@ export function TradePanel({
         <Box sx={{ display: "grid", gap: 1.25 }}>
           <Typography variant="h6">Trade</Typography>
 
-          {/* BUY / SELL */}
-          <ToggleButtonGroup
-            value={action}
-            exclusive
-            onChange={(_, v) => v && setAction(v)}
-            fullWidth
-            size="small"
-            disabled={hardDisabled}
-          >
+          <ToggleButtonGroup value={action} exclusive onChange={(_, v) => v && setAction(v)} fullWidth size="small">
             <ToggleButton value="BUY">Buy</ToggleButton>
             <ToggleButton value="SELL">Sell</ToggleButton>
           </ToggleButtonGroup>
 
-          {/* YES / NO */}
-          <ToggleButtonGroup
-            value={side}
-            exclusive
-            onChange={(_, v) => v && setSide(v)}
-            fullWidth
-            disabled={hardDisabled}
-          >
+          <ToggleButtonGroup value={side} exclusive onChange={(_, v) => v && setSide(v)} fullWidth>
             <ToggleButton value="YES" color="success">
               {action === "BUY" ? "YES" : "Sell YES"}
             </ToggleButton>
@@ -273,33 +252,16 @@ export function TradePanel({
             </ToggleButton>
           </ToggleButtonGroup>
 
-          {/* MARKET / LIMIT */}
-          <ToggleButtonGroup
-            value={orderType}
-            exclusive
-            onChange={(_, v) => v && setOrderType(v)}
-            fullWidth
-            size="small"
-            disabled={hardDisabled}
-          >
+          <ToggleButtonGroup value={orderType} exclusive onChange={(_, v) => v && setOrderType(v)} fullWidth size="small">
             <ToggleButton value="MARKET">Market</ToggleButton>
             <ToggleButton value="LIMIT">Limit</ToggleButton>
           </ToggleButtonGroup>
 
-          {/* $ / Shares */}
-          <ToggleButtonGroup
-            value={amountMode}
-            exclusive
-            onChange={(_, v) => v && setAmountMode(v)}
-            fullWidth
-            size="small"
-            disabled={hardDisabled}
-          >
+          <ToggleButtonGroup value={amountMode} exclusive onChange={(_, v) => v && setAmountMode(v)} fullWidth size="small">
             <ToggleButton value="USD">$</ToggleButton>
             <ToggleButton value="SHARES">Shares</ToggleButton>
           </ToggleButtonGroup>
 
-          {/* Inputs */}
           <Stack direction="row" spacing={1} alignItems="stretch">
             {amountMode === "USD" ? (
               <TextField
@@ -308,7 +270,6 @@ export function TradePanel({
                 onChange={(e) => setUsd(e.target.value)}
                 fullWidth
                 inputMode="decimal"
-                disabled={hardDisabled}
                 InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               />
             ) : (
@@ -318,16 +279,10 @@ export function TradePanel({
                 onChange={(e) => setSharesInput(e.target.value)}
                 fullWidth
                 inputMode="decimal"
-                disabled={hardDisabled}
               />
             )}
 
-            <Button
-              variant="outlined"
-              onClick={handleMax}
-              disabled={hardDisabled}
-              sx={{ width: 92, flex: "0 0 auto" }}
-            >
+            <Button variant="outlined" onClick={handleMax} sx={{ width: 92, flex: "0 0 auto" }}>
               Max
             </Button>
 
@@ -338,7 +293,6 @@ export function TradePanel({
                 onChange={(e) => setLimitCents(e.target.value)}
                 sx={{ width: 140 }}
                 inputMode="numeric"
-                disabled={hardDisabled}
               />
             )}
           </Stack>
@@ -359,26 +313,15 @@ export function TradePanel({
             <Row label="Shares" value={shares.toFixed(2)} />
             <Row label="Notional" value={`$${notionalUsd.toFixed(2)}`} />
             <Row label="Fee (est.)" value={`$${feeUsd.toFixed(2)}`} />
-            {action === "BUY" && totalCostUsd != null && (
-              <Row label="Total cost" value={`$${totalCostUsd.toFixed(2)}`} />
-            )}
-            {action === "SELL" && netProceedsUsd != null && (
-              <Row label="Net proceeds" value={`$${netProceedsUsd.toFixed(2)}`} />
-            )}
+            {action === "BUY" && totalCostUsd != null && <Row label="Total cost" value={`$${totalCostUsd.toFixed(2)}`} />}
+            {action === "SELL" && netProceedsUsd != null && <Row label="Net proceeds" value={`$${netProceedsUsd.toFixed(2)}`} />}
           </Box>
 
-          <Alert severity={hardDisabled ? "warning" : "info"} variant="outlined">
-            {hardDisabled
-              ? hardDisabledMsg
-              : "Market fills immediately. Limit becomes an open order (mock). Contracts pay $1 if correct, $0 otherwise."}
+          <Alert severity="info" variant="outlined">
+            Market fills immediately. Limit becomes an open order (mock). Contracts pay $1 if correct, $0 otherwise.
           </Alert>
 
-          <Button
-            size="large"
-            variant="contained"
-            disabled={Boolean(disabledReason)}
-            onClick={() => setOpenConfirm(true)}
-          >
+          <Button size="large" variant="contained" disabled={Boolean(disabledReason)} onClick={() => setOpenConfirm(true)}>
             {disabledReason ? disabledReason : "Review order"}
           </Button>
 

@@ -66,6 +66,7 @@ export function SideNav({
           borderColor: "divider",
           top: { xs: 0, sm: 0 },
           height: { xs: "100%", sm: "100%" },
+          zIndex:1
         },
       }}
     >
