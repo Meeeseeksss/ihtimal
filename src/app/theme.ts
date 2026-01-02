@@ -29,7 +29,7 @@ export const theme = createTheme({
       default: "#F5F5F7",
 
       // Cards, sheets, navbars
-      paper: "#FFFFFF",
+      paper: "#ff0000ff",
     },
 
     /**
