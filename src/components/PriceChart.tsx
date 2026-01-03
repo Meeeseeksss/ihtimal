@@ -38,10 +38,13 @@ export function PriceChart({
     return [Math.max(0, min - pad), Math.min(1, max + pad)] as [number, number];
   }, [data]);
 
+  // ✅ Explicit height prevents ResponsiveContainer from ever measuring -1 height.
+  const CHART_HEIGHT = 280;
+
   return (
-    <Box sx={{ display: "grid", gap: 1 }}>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+    <Box sx={{ display: "grid", gap: 1, minWidth: 0 }}>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, minWidth: 0 }}>
+        <Typography variant="body2" sx={{ color: "text.secondary", minWidth: 0 }}>
           Current YES: <b style={{ color: "#111827" }}>{Math.round(last * 100)}%</b>
         </Typography>
 
@@ -58,8 +61,16 @@ export function PriceChart({
         </ToggleButtonGroup>
       </Box>
 
-      <Box sx={{ height: 280 }}>
-        <ResponsiveContainer width="100%" height="100%">
+      {/* ✅ Guard container sizing inside flex/grid layouts */}
+      <Box
+        sx={{
+          width: "100%",
+          minWidth: 0,
+          overflow: "hidden",
+          borderRadius: 2,
+        }}
+      >
+        <ResponsiveContainer width="100%" height={CHART_HEIGHT} minWidth={0}>
           <LineChart data={data}>
             <CartesianGrid opacity={0.25} vertical={false} />
             <XAxis
@@ -74,7 +85,7 @@ export function PriceChart({
             />
             <YAxis
               domain={domain}
-              tickFormatter={(v) => `${Math.round(v * 100)}%`}
+              tickFormatter={(v) => `${Math.round((v as number) * 100)}%`}
               width={46}
             />
             <Tooltip
