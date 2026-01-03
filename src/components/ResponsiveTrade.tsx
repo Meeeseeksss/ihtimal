@@ -52,9 +52,6 @@ export function ResponsiveTrade({
   // Track whether user is typing in an input inside the sheet.
   const [isTyping, setIsTyping] = useState(false);
 
-  // Keyboard lift: how much the keyboard overlaps from bottom.
-  const [keyboardInset, setKeyboardInset] = useState(0);
-
   // Snap + drag state
   const [snap, setSnap] = useState<SnapKey>("HALF");
   const [heightPx, setHeightPx] = useState<number>(0);
@@ -81,12 +78,12 @@ export function ResponsiveTrade({
     return m?.question ?? "Trade";
   }, [marketId]);
 
-  // Compute snap heights based on viewport height (supports keyboard via visualViewport when available)
-  const getViewportH = () => {
-    const vv = window.visualViewport;
-    // visualViewport.height excludes the on-screen keyboard area in most mobile browsers
-    return vv?.height ?? window.innerHeight;
-  };
+  /**
+   * ✅ IMPORTANT: do NOT use visualViewport for snap heights.
+   * visualViewport shrinks when the keyboard appears -> causes the sheet to jump.
+   * We want keyboard to overlay (cover) the sheet, not push it.
+   */
+  const getViewportH = () => window.innerHeight;
 
   const computeSnaps = () => {
     const vh = getViewportH();
@@ -95,11 +92,10 @@ export function ResponsiveTrade({
     return { HALF, FULL };
   };
 
-  // ✅ Bottom tab bar guard (prevents last content being covered)
-  // If your tab bar is taller/shorter, adjust this number.
+  // Bottom tab bar guard so the last content isn't hidden behind tab nav
   const BOTTOM_TAB_GUARD_PX = 76;
 
-  // Initialize / update height on open, resize, orientation change, viewport changes (keyboard)
+  // Initialize / update height on open + on window resize/orientation change
   useEffect(() => {
     if (!isMobile) return;
 
@@ -107,42 +103,20 @@ export function ResponsiveTrade({
       const { HALF, FULL } = computeSnaps();
       const target = snap === "FULL" ? FULL : HALF;
       setHeightPx((prev) => {
-        // If closed, don't fight updates
         if (!open) return prev;
-        // If user is dragging, don't jump height here
         if (dragRef.current.active) return prev;
         return target;
       });
     };
 
     const onResize = () => apply();
-
     window.addEventListener("resize", onResize);
-
-    const vv = window.visualViewport;
-    const onVV = () => {
-      // keyboardInset = how much of the layout viewport is covered from bottom
-      // when visualViewport shrinks, innerHeight - vv.height is overlap-ish.
-      const inset = Math.max(0, window.innerHeight - (vv?.height ?? window.innerHeight));
-      setKeyboardInset(inset);
-      apply();
-    };
-
-    if (vv) {
-      vv.addEventListener("resize", onVV);
-      vv.addEventListener("scroll", onVV);
-      onVV();
-    }
 
     // Apply once
     apply();
 
     return () => {
       window.removeEventListener("resize", onResize);
-      if (vv) {
-        vv.removeEventListener("resize", onVV);
-        vv.removeEventListener("scroll", onVV);
-      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, open, snap]);
@@ -153,6 +127,7 @@ export function ResponsiveTrade({
     setSnap("HALF");
     const { HALF } = computeSnaps();
     setHeightPx(HALF);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Focus tracking to prevent accidental close while typing
@@ -225,12 +200,9 @@ export function ResponsiveTrade({
   };
 
   const settleSnap = (h: number, v: number) => {
-    // v is px/ms, positive means moving down (reducing height)
-    // Use velocity bias: fast up -> FULL, fast down -> HALF
     if (v < -0.7) return snapTo("FULL");
     if (v > 0.7) return snapTo("HALF");
 
-    // Otherwise nearest snap
     const dHalf = Math.abs(h - HALF);
     const dFull = Math.abs(h - FULL);
     snapTo(dFull <= dHalf ? "FULL" : "HALF");
@@ -255,7 +227,6 @@ export function ResponsiveTrade({
     const dy = e.clientY - d.startY; // down positive
     const nextH = clamp(d.startH - dy, minH, maxH);
 
-    // velocity estimate (px/ms)
     const dt = Math.max(1, now - d.lastT);
     d.velocity = (e.clientY - d.lastY) / dt;
     d.lastY = e.clientY;
@@ -271,7 +242,6 @@ export function ResponsiveTrade({
     settleSnap(heightPx || HALF, d.velocity);
   };
 
-  // Backdrop click closes unless typing
   const closeFromBackdrop = () => {
     if (isTyping) return;
     setOpen(false);
@@ -335,7 +305,7 @@ export function ResponsiveTrade({
             position: "fixed",
             left: 0,
             right: 0,
-            bottom: keyboardInset, // ✅ keyboard lift
+            bottom: 0, // ✅ keyboard overlays sheet; sheet does NOT move up
             zIndex: 1300,
             transition: dragRef.current.active ? "none" : "height 180ms ease",
             height: heightPx || HALF,
@@ -399,7 +369,13 @@ export function ResponsiveTrade({
                   size="small"
                   variant={snap === "HALF" ? "contained" : "outlined"}
                   onClick={() => snapTo("HALF")}
-                  sx={{ textTransform: "none", borderRadius: 2, fontWeight: 700, minWidth: 0, px: 1 }}
+                  sx={{
+                    textTransform: "none",
+                    borderRadius: 2,
+                    fontWeight: 700,
+                    minWidth: 0,
+                    px: 1,
+                  }}
                 >
                   Half
                 </Button>
@@ -407,7 +383,13 @@ export function ResponsiveTrade({
                   size="small"
                   variant={snap === "FULL" ? "contained" : "outlined"}
                   onClick={() => snapTo("FULL")}
-                  sx={{ textTransform: "none", borderRadius: 2, fontWeight: 700, minWidth: 0, px: 1 }}
+                  sx={{
+                    textTransform: "none",
+                    borderRadius: 2,
+                    fontWeight: 700,
+                    minWidth: 0,
+                    px: 1,
+                  }}
                 >
                   Full
                 </Button> */}
@@ -436,7 +418,7 @@ export function ResponsiveTrade({
               WebkitOverflowScrolling: "touch",
               px: 1.15,
               py: 1.15,
-              // ✅ FIX: add extra bottom padding so content isn't covered by bottom tabs
+              // ✅ keep this so the bottom tab nav doesn't cover the last content
               pb: `calc(${BOTTOM_TAB_GUARD_PX}px + env(safe-area-inset-bottom) + 16px)`,
             }}
           >
