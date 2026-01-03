@@ -432,7 +432,7 @@ export function TradePanel({
               </Box>
             ) : null}
           </Box>
-
+<br />
           {/* Summary */}
           <Box sx={{ border: `1px solid ${divider}`, borderRadius: 2, p: 1.2, bgcolor: surface }}>
             <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
@@ -464,6 +464,7 @@ export function TradePanel({
             <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
               Trading risks capital. Fees are estimated (mock).
             </Typography>
+            {/* <br /> */}
           </Box>
 
           {isTradingDisabled ? (
@@ -471,7 +472,7 @@ export function TradePanel({
               {tradingDisabledReason || "Trading is currently disabled for this market."}
             </Alert>
           ) : null}
-
+<br />
           <Button
             size="large"
             variant="contained"

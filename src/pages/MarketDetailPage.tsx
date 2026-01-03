@@ -1,6 +1,6 @@
 // src/pages/MarketDetailPage.tsx
 import { Box, Chip, Divider, Link, Paper, Stack, Typography } from "@mui/material";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { mockMarkets } from "../data/mockMarkets";
 import { PriceChart } from "../components/PriceChart";
@@ -17,6 +17,8 @@ import { OpenOrdersPanel } from "../components/OpenOrdersPanel";
 import { PositionWidget } from "../components/PositionWidget";
 import { accountActions, useAccountStore } from "../data/accountStore";
 import { mockMarketDetailsById } from "../data/mockMarketDetails";
+import { MarketChat } from "../components/MarketChat";
+import { MarketChatSkeleton } from "../components/MarketChatSkeleton";
 
 export function MarketDetailPage() {
   const { id } = useParams();
@@ -40,6 +42,35 @@ export function MarketDetailPage() {
   );
   const openOrders = useAccountStore((s) => s.openOrders.filter((o) => o.marketId === id));
   const recentTrades = useAccountStore((s) => s.trades.filter((t) => t.marketId === id).slice(0, 50));
+
+  // UI-only: backend will wire loading states later.
+  const chatLoading = false;
+
+  // === Measure trade panel height, then lock right column to match ===
+  const tradeBoxRef = useRef<HTMLDivElement | null>(null);
+  const [tradeHeight, setTradeHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = tradeBoxRef.current;
+    if (!el) return;
+
+    const setFromEl = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.height && rect.height > 40) setTradeHeight(Math.round(rect.height));
+    };
+
+    setFromEl();
+
+    const ro = new ResizeObserver(() => setFromEl());
+    ro.observe(el);
+
+    const raf = requestAnimationFrame(() => setFromEl());
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [id, presetKey]);
 
   if (!market) return <Typography sx={{ pt: 2 }}>Market not found.</Typography>;
 
@@ -247,19 +278,20 @@ export function MarketDetailPage() {
             />
           ) : null}
 
-          {/* ✅ Ticket + Open Orders on SAME ROW (md and up) */}
+          {/* Trade (left) + Right column (Open Orders + Chat) */}
           <Box
             sx={{
               display: "grid",
               gap: 1.25,
-              alignItems: "start",
+              alignItems: "stretch",
               gridTemplateColumns: {
                 xs: "1fr",
-                md: "minmax(0, 1.15fr) minmax(0, 0.85fr)", // <- this is the key fix
+                md: "minmax(0, 1.15fr) minmax(0, 0.85fr)",
               },
             }}
           >
-            <Box sx={{ minWidth: 0 }}>
+            {/* Measure this box (trade panel height) */}
+            <Box ref={tradeBoxRef} sx={{ minWidth: 0 }}>
               <ResponsiveTrade
                 marketId={market.id}
                 yesPrice={market.yesPrice}
@@ -271,12 +303,32 @@ export function MarketDetailPage() {
               />
             </Box>
 
-            <Box sx={{ minWidth: 0 }}>
-              <OpenOrdersPanel
-                dense
-                orders={openOrders}
-                onCancelOrder={(orderId) => accountActions.cancelOrder(orderId)}
-              />
+            {/* Right column: 2-row grid ensures chat bottom aligns with trade bottom */}
+            <Box
+              sx={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "grid",
+                gap: 1.25,
+                gridTemplateRows: "auto 1fr",
+                // lock height to trade on md+ so bottoms line up
+                height: {
+                  xs: "auto",
+                  md: tradeHeight ? `${tradeHeight}px` : "auto",
+                },
+              }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <OpenOrdersPanel
+                  dense
+                  orders={openOrders}
+                  onCancelOrder={(orderId) => accountActions.cancelOrder(orderId)}
+                />
+              </Box>
+
+              <Box sx={{ minWidth: 0, minHeight: 0 }}>
+                {chatLoading ? <MarketChatSkeleton /> : <MarketChat marketId={market.id} />}
+              </Box>
             </Box>
           </Box>
         </Stack>
