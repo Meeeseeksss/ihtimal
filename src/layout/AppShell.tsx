@@ -5,6 +5,7 @@ import { SideNav } from "./SideNav";
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "@mui/material/styles";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { Footer } from "./Footer";
 import { useNotify } from "../app/notifications";
 import { mockMarkets } from "../data/mockMarkets";
 import { useWatchlist } from "../data/watchlist";
@@ -73,7 +74,6 @@ export function AppShell() {
         minHeight: "100vh",
         bgcolor: "background.default",
         width: "100%",
-        
       }}
     >
       <TopNav
@@ -110,6 +110,9 @@ export function AppShell() {
         >
           <Toolbar />
           <Outlet />
+
+          {/* Footer is part of the scrollable page content */}
+          <Footer />
         </Box>
       </Box>
 
