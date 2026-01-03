@@ -95,6 +95,10 @@ export function ResponsiveTrade({
     return { HALF, FULL };
   };
 
+  // ✅ Bottom tab bar guard (prevents last content being covered)
+  // If your tab bar is taller/shorter, adjust this number.
+  const BOTTOM_TAB_GUARD_PX = 76;
+
   // Initialize / update height on open, resize, orientation change, viewport changes (keyboard)
   useEffect(() => {
     if (!isMobile) return;
@@ -233,7 +237,6 @@ export function ResponsiveTrade({
   };
 
   const onPointerDownHandle = (e: React.PointerEvent) => {
-    // Only left click / touch
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const d = dragRef.current;
     d.active = true;
@@ -334,7 +337,6 @@ export function ResponsiveTrade({
             right: 0,
             bottom: keyboardInset, // ✅ keyboard lift
             zIndex: 1300,
-            // Use transform for smoother animation
             transition: dragRef.current.active ? "none" : "height 180ms ease",
             height: heightPx || HALF,
             maxHeight: maxH,
@@ -346,7 +348,6 @@ export function ResponsiveTrade({
             bgcolor: "background.default",
             boxShadow: "0px -10px 30px rgba(0,0,0,0.20)",
             overflow: "hidden",
-            // Safe area
             pb: "env(safe-area-inset-bottom)",
           }}
         >
@@ -363,7 +364,7 @@ export function ResponsiveTrade({
               bgcolor: "background.paper",
               borderBottom: "1px solid",
               borderColor: "divider",
-              touchAction: "none", // important for smooth pointer drag
+              touchAction: "none",
               userSelect: "none",
             }}
           >
@@ -378,7 +379,6 @@ export function ResponsiveTrade({
               />
             </Box>
 
-            {/* Title row + snap controls */}
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
               <Typography
                 variant="body2"
@@ -395,7 +395,6 @@ export function ResponsiveTrade({
               </Typography>
 
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                {/* Quick snap toggles */}
                 <Button
                   size="small"
                   variant={snap === "HALF" ? "contained" : "outlined"}
@@ -437,7 +436,8 @@ export function ResponsiveTrade({
               WebkitOverflowScrolling: "touch",
               px: 1.15,
               py: 1.15,
-              pb: `calc(1.15rem + env(safe-area-inset-bottom))`,
+              // ✅ FIX: add extra bottom padding so content isn't covered by bottom tabs
+              pb: `calc(${BOTTOM_TAB_GUARD_PX}px + env(safe-area-inset-bottom) + 16px)`,
             }}
           >
             <Paper elevation={0} sx={{ bgcolor: "transparent" }}>
