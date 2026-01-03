@@ -100,13 +100,73 @@ export function HomePage() {
               pointerEvents: "none",
             }}
           />
-          <Stack spacing={1} sx={{ position: "relative" }}>
-            <Typography variant="h5" fontWeight={950} sx={{ letterSpacing: -0.4 }}>
-              Discover today’s top markets
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 78 }}>
-              Explore what’s moving, what’s close, and what’s mispriced — then trade in seconds.
-            </Typography>
+
+          <Stack
+            spacing={{ xs: 1.75, md: 2.5 }}
+            direction={{ xs: "column", md: "row" }}
+            alignItems={{ xs: "stretch", md: "center" }}
+            sx={{ position: "relative" }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="h5" fontWeight={950} sx={{ letterSpacing: -0.4 }}>
+                Discover today’s top markets
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mt: 0.75, maxWidth: 620, lineHeight: 1.5 }}
+              >
+                Explore what’s moving, what’s close, and what’s mispriced — then trade in seconds.
+              </Typography>
+            </Box>
+
+            {/* Placeholder hero image (swap later for real art/photo) */}
+            <Box
+              aria-hidden
+              sx={{
+                width: { xs: "100%", md: 360 },
+                height: { xs: 160, sm: 180, md: 190 },
+                flex: "0 0 auto",
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                bgcolor: "rgba(17,24,39,0.04)",
+                position: "relative",
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Box
+                aria-hidden
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  background:
+                    "linear-gradient(135deg, rgba(0,122,255,0.14), rgba(52,199,89,0.10), rgba(255,149,0,0.10))",
+                }}
+              />
+              <Typography
+                variant="caption"
+                sx={{
+                  position: "relative",
+                  fontWeight: 900,
+                  letterSpacing: 0.6,
+                  textTransform: "uppercase",
+                  color: "text.secondary",
+                  bgcolor: "rgba(255,255,255,0.55)",
+                  px: 1.25,
+                  py: 0.75,
+                  borderRadius: 999,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  backdropFilter: "blur(6px)",
+                }}
+              >
+                Placeholder image
+              </Typography>
+            </Box>
           </Stack>
         </Paper>
 
