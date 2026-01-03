@@ -57,6 +57,8 @@ export function ResponsiveTrade({
   const [heightPx, setHeightPx] = useState<number>(0);
 
   const sheetRootRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
   const dragRef = useRef<{
     active: boolean;
     startY: number;
@@ -80,8 +82,7 @@ export function ResponsiveTrade({
 
   /**
    * ✅ IMPORTANT: do NOT use visualViewport for snap heights.
-   * visualViewport shrinks when the keyboard appears -> causes the sheet to jump.
-   * We want keyboard to overlay (cover) the sheet, not push it.
+   * We want keyboard to overlay the sheet (no jump).
    */
   const getViewportH = () => window.innerHeight;
 
@@ -95,7 +96,7 @@ export function ResponsiveTrade({
   // Bottom tab bar guard so the last content isn't hidden behind tab nav
   const BOTTOM_TAB_GUARD_PX = 76;
 
-  // Initialize / update height on open + on window resize/orientation change
+  // Init/update height on open + resize/orientation changes
   useEffect(() => {
     if (!isMobile) return;
 
@@ -111,13 +112,9 @@ export function ResponsiveTrade({
 
     const onResize = () => apply();
     window.addEventListener("resize", onResize);
-
-    // Apply once
     apply();
 
-    return () => {
-      window.removeEventListener("resize", onResize);
-    };
+    return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, open, snap]);
 
@@ -130,7 +127,7 @@ export function ResponsiveTrade({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Focus tracking to prevent accidental close while typing
+  // Focus tracking + auto-scroll focused input into view
   useEffect(() => {
     if (!open) {
       setIsTyping(false);
@@ -140,9 +137,52 @@ export function ResponsiveTrade({
     const root = sheetRootRef.current;
     if (!root) return;
 
+    const scrollFocusedIntoView = (el: Element) => {
+      const container = contentRef.current;
+      if (!container) return;
+
+      // We want the input comfortably above the bottom (keyboard + nav)
+      const guardBottom = BOTTOM_TAB_GUARD_PX + 16;
+
+      // compute element position inside scroll container
+      const elRect = (el as HTMLElement).getBoundingClientRect();
+      const cRect = container.getBoundingClientRect();
+
+      // distance from top of scroll container viewport
+      const topWithin = elRect.top - cRect.top;
+      const bottomWithin = elRect.bottom - cRect.top;
+
+      const visibleTop = 0;
+      const visibleBottom = cRect.height - guardBottom;
+
+      // If it's already visible enough, do nothing
+      if (topWithin >= visibleTop + 8 && bottomWithin <= visibleBottom - 8) return;
+
+      // Preferred target: bring it so its bottom sits a bit above visibleBottom
+      const currentScroll = container.scrollTop;
+      const delta = bottomWithin - (visibleBottom - 12);
+      const nextScroll = Math.max(0, currentScroll + delta);
+
+      container.scrollTo({ top: nextScroll, behavior: "smooth" });
+    };
+
     const onFocusIn = (e: FocusEvent) => {
       const t = e.target as Element | null;
-      if (isTextInputEl(t)) setIsTyping(true);
+      if (!t) return;
+
+      if (isTextInputEl(t)) {
+        setIsTyping(true);
+
+        // Wait a tick so the browser can place caret + potentially start keyboard animation
+        window.setTimeout(() => {
+          scrollFocusedIntoView(t);
+        }, 50);
+
+        // Another pass a bit later (helps iOS where keyboard anim can be delayed)
+        window.setTimeout(() => {
+          scrollFocusedIntoView(t);
+        }, 250);
+      }
     };
 
     const onFocusOut = () => {
@@ -154,10 +194,29 @@ export function ResponsiveTrade({
     root.addEventListener("focusin", onFocusIn);
     root.addEventListener("focusout", onFocusOut);
 
+    // Also re-check on visualViewport resize (keyboard), but WITHOUT lifting the sheet.
+    // This just helps scroll the focused input into view once the viewport changes.
+    const vv = window.visualViewport;
+    const onVV = () => {
+      const active = document.activeElement as Element | null;
+      if (active && isTextInputEl(active)) {
+        scrollFocusedIntoView(active);
+      }
+    };
+    if (vv) {
+      vv.addEventListener("resize", onVV);
+      vv.addEventListener("scroll", onVV);
+    }
+
     return () => {
       root.removeEventListener("focusin", onFocusIn);
       root.removeEventListener("focusout", onFocusOut);
+      if (vv) {
+        vv.removeEventListener("resize", onVV);
+        vv.removeEventListener("scroll", onVV);
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // ESC to close (disabled while typing)
@@ -305,7 +364,7 @@ export function ResponsiveTrade({
             position: "fixed",
             left: 0,
             right: 0,
-            bottom: 0, // ✅ keyboard overlays sheet; sheet does NOT move up
+            bottom: 0, // keyboard overlays sheet (no lift)
             zIndex: 1300,
             transition: dragRef.current.active ? "none" : "height 180ms ease",
             height: heightPx || HALF,
@@ -369,13 +428,7 @@ export function ResponsiveTrade({
                   size="small"
                   variant={snap === "HALF" ? "contained" : "outlined"}
                   onClick={() => snapTo("HALF")}
-                  sx={{
-                    textTransform: "none",
-                    borderRadius: 2,
-                    fontWeight: 700,
-                    minWidth: 0,
-                    px: 1,
-                  }}
+                  sx={{ textTransform: "none", borderRadius: 2, fontWeight: 700, minWidth: 0, px: 1 }}
                 >
                   Half
                 </Button>
@@ -383,19 +436,13 @@ export function ResponsiveTrade({
                   size="small"
                   variant={snap === "FULL" ? "contained" : "outlined"}
                   onClick={() => snapTo("FULL")}
-                  sx={{
-                    textTransform: "none",
-                    borderRadius: 2,
-                    fontWeight: 700,
-                    minWidth: 0,
-                    px: 1,
-                  }}
+                  sx={{ textTransform: "none", borderRadius: 2, fontWeight: 700, minWidth: 0, px: 1 }}
                 >
                   Full
                 </Button> */}
 
                 <IconButton
-                  onClick={() => setOpen(false)} // X always closes
+                  onClick={() => setOpen(false)}
                   aria-label="Close trade"
                   sx={{
                     border: "1px solid",
@@ -410,15 +457,15 @@ export function ResponsiveTrade({
             </Box>
           </Box>
 
-          {/* Content area */}
+          {/* Content area (scroll container) */}
           <Box
+            ref={contentRef}
             sx={{
               flex: 1,
               overflow: "auto",
               WebkitOverflowScrolling: "touch",
               px: 1.15,
               py: 1.15,
-              // ✅ keep this so the bottom tab nav doesn't cover the last content
               pb: `calc(${BOTTOM_TAB_GUARD_PX}px + env(safe-area-inset-bottom) + 16px)`,
             }}
           >
