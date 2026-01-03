@@ -5,8 +5,6 @@ import {
   Chip,
   Divider,
   InputAdornment,
-  Menu,
-  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -96,25 +94,26 @@ export function TradePanel({
 
   const walletCashUsd = useAccountStore((s) => s.walletCashUsd);
   const posYes = useAccountStore(
-    (s) => s.positions.find((p) => p.marketId === marketId && p.side === "YES" && p.status === "OPEN") ?? null
+    (s) =>
+      s.positions.find(
+        (p) => p.marketId === marketId && p.side === "YES" && p.status === "OPEN"
+      ) ?? null
   );
   const posNo = useAccountStore(
-    (s) => s.positions.find((p) => p.marketId === marketId && p.side === "NO" && p.status === "OPEN") ?? null
+    (s) =>
+      s.positions.find(
+        (p) => p.marketId === marketId && p.side === "NO" && p.status === "OPEN"
+      ) ?? null
   );
 
   const [action, setAction] = useState<Action>("BUY");
   const [side, setSide] = useState<Side>("YES");
   const [orderType, setOrderType] = useState<OrderType>("MARKET");
 
-  // Polymarket-style amount: big display + quick bumps
   const [usd, setUsd] = useState("0");
   const [limitCents, setLimitCents] = useState(String(Math.round(yesPrice * 100)));
 
   const [openConfirm, setOpenConfirm] = useState(false);
-
-  // Order type dropdown
-  const [orderMenuAnchor, setOrderMenuAnchor] = useState<HTMLElement | null>(null);
-  const orderMenuOpen = Boolean(orderMenuAnchor);
 
   const yesMid = clamp01(yesPrice);
 
@@ -165,7 +164,10 @@ export function TradePanel({
   const notionalUsd = useMemo(() => shares * execSidePrice, [shares, execSidePrice]);
   const feeUsd = useMemo(() => estimateFee(notionalUsd), [notionalUsd]);
 
-  const totalCostUsd = useMemo(() => (action === "BUY" ? notionalUsd + feeUsd : undefined), [action, notionalUsd, feeUsd]);
+  const totalCostUsd = useMemo(
+    () => (action === "BUY" ? notionalUsd + feeUsd : undefined),
+    [action, notionalUsd, feeUsd]
+  );
   const netProceedsUsd = useMemo(
     () => (action === "SELL" ? Math.max(0, notionalUsd - feeUsd) : undefined),
     [action, notionalUsd, feeUsd]
@@ -182,7 +184,8 @@ export function TradePanel({
     if (!Number.isFinite(shares) || shares <= 0) return "Enter amount";
 
     if (orderType === "LIMIT") {
-      if (!Number.isFinite(limitSidePrice) || limitSidePrice <= 0 || limitSidePrice >= 1) return "Bad limit";
+      if (!Number.isFinite(limitSidePrice) || limitSidePrice <= 0 || limitSidePrice >= 1)
+        return "Bad limit";
     }
 
     if (action === "BUY") {
@@ -217,7 +220,6 @@ export function TradePanel({
       setUsd(String(Math.floor(maxNotional)));
       return;
     }
-    // SELL: set amount to full notional at current price
     const maxNotional = positionSharesBefore * execSidePrice;
     setUsd(String(Math.floor(maxNotional)));
   }
@@ -238,7 +240,6 @@ export function TradePanel({
     positionSharesBefore,
   };
 
-  // --- Match app theme (Apple-like light) ---
   const divider = theme.palette.divider;
   const surface = theme.palette.background.paper;
   const soft = alpha(theme.palette.text.primary, 0.04);
@@ -254,8 +255,9 @@ export function TradePanel({
   const yesFillHover = alpha(theme.palette.success.main, 0.22);
   const yesStroke = alpha(theme.palette.success.main, 0.38);
 
-  const noFill = alpha("#000", 0.035);
-  const noFillHover = alpha("#000", 0.06);
+  const noFill = alpha(theme.palette.error.main, 0.12);
+  const noFillHover = alpha(theme.palette.error.main, 0.16);
+  const noStroke = alpha(theme.palette.error.main, 0.32);
 
   const ctaDisabled = Boolean(disabledReason);
 
@@ -266,6 +268,13 @@ export function TradePanel({
         ? fmtUsd(totalCostUsd ?? 0)
         : fmtUsd(netProceedsUsd ?? 0)
       : "—";
+
+  const ctaLabel = useMemo(() => {
+    if (disabledReason) return disabledReason;
+    const verb = action === "BUY" ? "Buy" : "Sell";
+    const ot = orderType === "LIMIT" ? "Limit" : "Market";
+    return `${verb} ${side} • ${ot}`;
+  }, [action, disabledReason, orderType, side]);
 
   const summaryRows = useMemo(() => {
     const rows = [
@@ -287,70 +296,54 @@ export function TradePanel({
       <Paper sx={{ p: 1.75, borderRadius: 2, bgcolor: surface }}>
         <Stack spacing={1.35}>
           {/* Header */}
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, paddingBottom:1.2 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 1,
+              minWidth: 0,
+            }}
+          >
             <Typography variant="subtitle1" sx={{ fontWeight: 650 }}>
               Trade
             </Typography>
             <Chip size="small" variant="outlined" label={`Cash ${fmtUsd(walletCashUsd)}`} />
           </Box>
-{/* <br /> */}
-          {/* Buy / Sell tabs + Market dropdown */}
-          <Box sx={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 1, paddingBottom:1.2 }}>
-            <Box sx={{ display: "flex", gap: 2.25 }}>
-              <UnderlineTab active={action === "BUY"} onClick={() => setAction("BUY")}>
-                Buy
-              </UnderlineTab>
-              <UnderlineTab active={action === "SELL"} onClick={() => setAction("SELL")}>
-                Sell
-              </UnderlineTab>
-            </Box>
 
-            <Button
-              size="small"
-              variant="text"
-              onClick={(e) => setOrderMenuAnchor(e.currentTarget)}
-              sx={{
-                textTransform: "none",
-                fontWeight: 600,
-                px: 1.1,
-                py: 0.55,
-                borderRadius: 1.5,
-                bgcolor: soft2,
-                border: `1px solid ${divider}`,
-                "&:hover": { bgcolor: soft2 },
-              }}
-            >
-              {orderType === "MARKET" ? "Market" : "Limit"} ▾
-            </Button>
+          {/* Action + Order type (fixed: no overflow, centered) */}
+          <Box
+            sx={{
+              display: "grid",
+              gap: 1,
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+              alignItems: "center",
+              minWidth: 0,
+            }}
+          >
+            <Segmented
+              value={action}
+              options={[
+                { value: "BUY", label: "Buy" },
+                { value: "SELL", label: "Sell" },
+              ]}
+              onChange={(v) => setAction(v as Action)}
+              fullWidth
+            />
 
-            <Menu
-              anchorEl={orderMenuAnchor}
-              open={orderMenuOpen}
-              onClose={() => setOrderMenuAnchor(null)}
-              transformOrigin={{ horizontal: "right", vertical: "top" }}
-              anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-            >
-              <MenuItem
-                onClick={() => {
-                  setOrderType("MARKET");
-                  setOrderMenuAnchor(null);
-                }}
-              >
-                Market
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setOrderType("LIMIT");
-                  setOrderMenuAnchor(null);
-                }}
-              >
-                Limit
-              </MenuItem>
-            </Menu>
+            <Segmented
+              value={orderType}
+              options={[
+                { value: "MARKET", label: "Market" },
+                { value: "LIMIT", label: "Limit" },
+              ]}
+              onChange={(v) => setOrderType(v as OrderType)}
+              fullWidth
+            />
           </Box>
 
           {/* YES / NO pills */}
-          <Box sx={{ display: "flex", gap: 1 }}>
+          <Box sx={{ display: "flex", gap: 1, minWidth: 0 }}>
             <Button
               fullWidth
               disableElevation
@@ -379,9 +372,9 @@ export function TradePanel({
                 fontWeight: 650,
                 borderRadius: 2,
                 py: 1.05,
-                border: `1px solid ${divider}`,
-                bgcolor: noSelected ? noFillHover : noFill,
-                "&:hover": { bgcolor: noFillHover },
+                border: `1px solid ${noSelected ? noStroke : divider}`,
+                bgcolor: noSelected ? noFill : soft,
+                "&:hover": { bgcolor: noSelected ? noFillHover : soft2 },
               }}
             >
               No {fmtCents(clamp01(noLabelPrice))}
@@ -389,17 +382,36 @@ export function TradePanel({
           </Box>
 
           {/* Amount block */}
-          <Box sx={{ border: `1px solid ${divider}`, borderRadius: 2, p: 1.25, bgcolor: soft }}>
-            <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
+          <Box
+            sx={{
+              border: `1px solid ${divider}`,
+              borderRadius: 2,
+              p: 1.25,
+              bgcolor: soft,
+              minWidth: 0,
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                gap: 1,
+                minWidth: 0,
+              }}
+            >
               <Typography variant="body2" sx={{ fontWeight: 600, color: "text.secondary" }}>
                 Amount
               </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.25, lineHeight: 1 }}>
+              <Typography
+                variant="h4"
+                sx={{ fontWeight: 700, letterSpacing: -0.25, lineHeight: 1 }}
+              >
                 ${Math.round(parseNonNeg(usd))}
               </Typography>
             </Box>
 
-            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1, flexWrap: "wrap" }}>
               <MiniPill onClick={() => bumpUsd(1)}>+$1</MiniPill>
               <MiniPill onClick={() => bumpUsd(20)}>+$20</MiniPill>
               <MiniPill onClick={() => bumpUsd(100)}>+$100</MiniPill>
@@ -414,7 +426,9 @@ export function TradePanel({
                 fullWidth
                 placeholder="0"
                 inputMode="numeric"
-                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                }}
               />
             </Box>
 
@@ -430,26 +444,107 @@ export function TradePanel({
                 />
               </Box>
             ) : null}
+
+            {/* Quick totals */}
+            <Box
+              sx={{
+                mt: 1,
+                display: "grid",
+                gap: 0.75,
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+              }}
+            >
+              <Box
+                sx={{
+                  border: `1px solid ${divider}`,
+                  borderRadius: 1.75,
+                  px: 1,
+                  py: 0.8,
+                  bgcolor: surface,
+                  minWidth: 0,
+                }}
+              >
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
+                  {action === "BUY" ? "Est. cost" : "Est. receive"}
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 800, mt: 0.25 }}>
+                  {shares > 0
+                    ? action === "BUY"
+                      ? fmtUsd(totalCostUsd ?? 0)
+                      : fmtUsd(netProceedsUsd ?? 0)
+                    : "—"}
+                </Typography>
+              </Box>
+
+              <Box
+                sx={{
+                  border: `1px solid ${divider}`,
+                  borderRadius: 1.75,
+                  px: 1,
+                  py: 0.8,
+                  bgcolor: surface,
+                  minWidth: 0,
+                }}
+              >
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
+                  {action === "BUY" ? "Est. payout" : "Remaining shares"}
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 800, mt: 0.25 }}>
+                  {action === "BUY"
+                    ? shares > 0
+                      ? fmtUsd(payoutUsd)
+                      : "—"
+                    : `${Math.max(0, positionSharesBefore - (shares || 0)).toFixed(2)}`}
+                </Typography>
+              </Box>
+            </Box>
           </Box>
-          <br />
+
           {/* Summary */}
-          <Box sx={{ border: `1px solid ${divider}`, borderRadius: 2, p: 1.2, bgcolor: surface }}>
-            <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
+          <Box
+            sx={{
+              border: `1px solid ${divider}`,
+              borderRadius: 2,
+              p: 1.2,
+              bgcolor: surface,
+              minWidth: 0,
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                gap: 1,
+                minWidth: 0,
+              }}
+            >
               <Typography variant="body2" sx={{ fontWeight: 650 }}>
                 Summary
               </Typography>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {action === "BUY" ? "Buying" : "Selling"} {yesSelected ? "Yes" : "No"}
+                {action === "BUY" ? "Buying" : "Selling"} {side === "YES" ? "Yes" : "No"}
               </Typography>
             </Box>
 
             <Divider sx={{ my: 1 }} />
 
-            <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                gap: 1,
+                minWidth: 0,
+              }}
+            >
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {payOrReceiveLabel}
               </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: -0.2, lineHeight: 1 }}>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 700, letterSpacing: -0.2, lineHeight: 1 }}
+              >
                 {payOrReceiveValue}
               </Typography>
             </Box>
@@ -460,10 +555,12 @@ export function TradePanel({
               ))}
             </Box>
 
-            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "text.secondary", display: "block", mt: 1 }}
+            >
               Trading risks capital. Fees are estimated (mock).
             </Typography>
-            {/* <br /> */}
           </Box>
 
           {isTradingDisabled ? (
@@ -471,7 +568,7 @@ export function TradePanel({
               {tradingDisabledReason || "Trading is currently disabled for this market."}
             </Alert>
           ) : null}
-          <br />
+
           <Button
             size="large"
             variant="contained"
@@ -485,11 +582,16 @@ export function TradePanel({
               textTransform: "none",
             }}
           >
-            {disabledReason ? disabledReason : "Trade"}
+            {ctaLabel}
           </Button>
 
           {onRequestClose ? (
-            <Button size="small" variant="text" onClick={onRequestClose} sx={{ mt: -0.25, textTransform: "none" }}>
+            <Button
+              size="small"
+              variant="text"
+              onClick={onRequestClose}
+              sx={{ mt: -0.25, textTransform: "none" }}
+            >
               Close
             </Button>
           ) : null}
@@ -533,39 +635,69 @@ export function TradePanel({
   );
 }
 
-function UnderlineTab({
-  active,
-  children,
-  onClick,
+function Segmented({
+  value,
+  options,
+  onChange,
+  fullWidth,
 }: {
-  active: boolean;
-  children: ReactNode;
-  onClick: () => void;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (v: string) => void;
+  fullWidth?: boolean;
 }) {
   const theme = useTheme();
   return (
     <Box
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === "Enter" && onClick()}
+      role="tablist"
       sx={{
-        cursor: "pointer",
-        pb: 0.75,
-        borderBottom: "2px solid",
-        borderBottomColor: active ? theme.palette.text.primary : "transparent",
-        outline: "none",
+        display: "flex",
+        width: fullWidth ? "100%" : "auto",
+        alignItems: "center",
+        border: `1px solid ${theme.palette.divider}`,
+        bgcolor: alpha(theme.palette.text.primary, 0.03),
+        borderRadius: 999,
+        p: 0.35,
+        gap: 0.35,
+        overflow: "hidden", // <- prevents any button bleed
+        minWidth: 0,
       }}
     >
-      <Typography
-        variant="body2"
-        sx={{
-          fontWeight: active ? 650 : 600,
-          color: active ? "text.primary" : "text.secondary",
-        }}
-      >
-        {children}
-      </Typography>
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <Button
+            key={o.value}
+            role="tab"
+            aria-selected={active}
+            size="small"
+            disableElevation
+            variant={active ? "contained" : "text"}
+            onClick={() => onChange(o.value)}
+            sx={{
+              flex: 1, // <- equal widths, always centered
+              minWidth: 0, // <- critical to prevent overflow
+              height: 34,
+              borderRadius: 999,
+              textTransform: "none",
+              fontWeight: 800,
+              ...(active
+                ? {
+                    bgcolor: theme.palette.background.paper,
+                    color: "text.primary",
+                    boxShadow: `0 1px 0 ${alpha(theme.palette.common.black, 0.12)}`,
+                    "&:hover": { bgcolor: theme.palette.background.paper },
+                  }
+                : {
+                    color: "text.secondary",
+                    "&:hover": { bgcolor: alpha(theme.palette.text.primary, 0.05) },
+                  }),
+            }}
+          >
+            {o.label}
+          </Button>
+        );
+      })}
     </Box>
   );
 }
