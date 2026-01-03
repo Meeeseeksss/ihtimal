@@ -117,14 +117,6 @@ function DiscordBrandIcon(props: SvgIconProps) {
   );
 }
 
-function TikTokBrandIcon(props: SvgIconProps) {
-  return (
-    <SvgIcon {...props} viewBox="0 0 24 24">
-      <path d="M15 3c.6 2.3 2.2 3.9 4.5 4.5V10a7.1 7.1 0 0 1-4.5-1.6V15a5 5 0 1 1-5-5h1v2.6a2.4 2.4 0 1 0 1.9 2.3V3H15Z" />
-    </SvgIcon>
-  );
-}
-
 export function Footer() {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
