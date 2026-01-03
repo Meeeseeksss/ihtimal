@@ -7,27 +7,40 @@ import {
   InputAdornment,
   Button,
   Link,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  Divider,
+  Switch,
   Popper,
   Paper,
   List,
   ListItemButton,
   ListItemText,
   Typography,
-  useMediaQuery,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import LoginIcon from "@mui/icons-material/Login";
+import PersonAddAltIcon from "@mui/icons-material/PersonAddAlt";
+import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
+import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTheme } from "@mui/material/styles";
+import type { MouseEvent } from "react";
 
 import { mockMarkets } from "../data/mockMarkets";
 import Logo from "../assets/ihtimal-logo.svg";
 import { HowItWorksModal } from "../components/HowItWorksModal";
+import { useColorMode } from "../theme/ColorModeContext";
 
 const RECENTS_KEY = "recentMarketSearches";
 const MAX_RECENTS = 7;
+
+/* ---------- helpers ---------- */
 
 type SearchItem =
   | { type: "market"; id: string; label: string; sublabel?: string }
@@ -48,11 +61,14 @@ function readRecents(): string[] {
 
 function writeRecents(recents: string[]) {
   try {
-    localStorage.setItem(RECENTS_KEY, JSON.stringify(recents.slice(0, MAX_RECENTS)));
-  } catch {
-    // ignore
-  }
+    localStorage.setItem(
+      RECENTS_KEY,
+      JSON.stringify(recents.slice(0, MAX_RECENTS))
+    );
+  } catch {}
 }
+
+/* ---------- component ---------- */
 
 export function TopNav({
   collapsed,
@@ -60,18 +76,13 @@ export function TopNav({
   onMenuClick,
 }: {
   collapsed: boolean;
-  isMobile: boolean; // used for other layout choices (auth buttons etc.)
+  isMobile: boolean;
   onMenuClick: () => void;
 }) {
-  const theme = useTheme();
-
-  // ✅ Only hide hamburger on true phone widths
-  const hideMenuOnPhone = useMediaQuery(theme.breakpoints.down("sm"));
-
   const navigate = useNavigate();
   const location = useLocation();
+  const { mode, toggleColorMode } = useColorMode();
 
-  // Locked design constraints (source of truth per user)
   const navPx = { xs: 1.5, sm: 2.5 };
   const searchHeight = 40;
   const searchRadius = 999;
@@ -81,26 +92,27 @@ export function TopNav({
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [howOpen, setHowOpen] = useState(false);
+  const [acctAnchorEl, setAcctAnchorEl] = useState<null | HTMLElement>(null);
   const [recents, setRecents] = useState<string[]>(() => readRecents());
   const [highlightIndex, setHighlightIndex] = useState(0);
 
+  const acctOpen = Boolean(acctAnchorEl);
+
   const anchorRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setRecents(readRecents());
   }, []);
 
-  // If the user navigates, close the popper.
   useEffect(() => {
     setOpen(false);
+    setAcctAnchorEl(null);
   }, [location.pathname, location.search]);
 
   const matches = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return [];
 
-    // Very lightweight “autosuggest” from mockMarkets (no backend)
     return mockMarkets
       .filter((m) => m.question.toLowerCase().includes(needle))
       .slice(0, 7)
@@ -113,78 +125,14 @@ export function TopNav({
   }, [q]);
 
   const selectable = useMemo(() => {
-    const needle = q.trim();
-
-    const out: SearchItem[] = [];
-    if (!needle) {
-      // Recents when empty.
-      for (const r of recents.slice(0, MAX_RECENTS)) {
-        out.push({ type: "recent", q: r, label: r });
-      }
-      return out;
+    if (!q.trim()) {
+      return recents.map((r) => ({ type: "recent", q: r, label: r }));
     }
-
-    out.push(...matches);
-    out.push({ type: "search", q: needle, label: `Search markets for "${needle}"` });
-
-    return out;
-  }, [q, recents, matches]);
-
-  function addRecent(next: string) {
-    const trimmed = next.trim();
-    if (!trimmed) return;
-
-    const merged = [trimmed, ...recents.filter((r) => r !== trimmed)].slice(0, MAX_RECENTS);
-    setRecents(merged);
-    writeRecents(merged);
-  }
-
-  function goToSearch(query: string) {
-    addRecent(query);
-    setOpen(false);
-    navigate(`/markets?q=${encodeURIComponent(query)}`);
-  }
-
-  function goToMarket(marketId: string) {
-    setOpen(false);
-    navigate(`/markets/${marketId}`);
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
-      setOpen(true);
-      return;
-    }
-
-    if (!open) return;
-
-    if (e.key === "Escape") {
-      setOpen(false);
-      return;
-    }
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlightIndex((i) => Math.min(selectable.length - 1, i + 1));
-      return;
-    }
-
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlightIndex((i) => Math.max(0, i - 1));
-      return;
-    }
-
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const item = selectable[highlightIndex];
-      if (!item) return;
-
-      if (item.type === "market") goToMarket(item.id);
-      if (item.type === "recent") goToSearch(item.q);
-      if (item.type === "search") goToSearch(item.q);
-    }
-  }
+    return [
+      ...matches,
+      { type: "search", q, label: `Search markets for "${q}"` },
+    ];
+  }, [q, matches, recents]);
 
   return (
     <>
@@ -195,19 +143,14 @@ export function TopNav({
           bgcolor: "background.paper",
           borderBottom: 1,
           borderColor: "divider",
-          // Avoid 100vw (can cause horizontal overflow due to scrollbar width).
           width: "100%",
-          left: 0,
-          right: 0,
         }}
       >
         <Toolbar
           disableGutters
           sx={{
             minHeight: 56,
-            width: "100%",
             px: navPx,
-            boxSizing: "border-box",
           }}
         >
           <Box
@@ -215,11 +158,10 @@ export function TopNav({
               width: "100%",
               display: "flex",
               alignItems: "center",
-              minWidth: 0,
               gap: 1.25,
             }}
           >
-            {/* LEFT: menu + logo */}
+            {/* LEFT: desktop hamburger + logo */}
             <Box
               sx={{
                 display: "flex",
@@ -228,36 +170,30 @@ export function TopNav({
                 flex: "0 0 auto",
               }}
             >
-              {/* ✅ Hide hamburger ONLY on phone */}
-              {!hideMenuOnPhone ? (
-                <IconButton
-                  onClick={onMenuClick}
-                  sx={{
-                    border: "1px solid",
-                    borderColor: "divider",
-                    width: 40,
-                    height: 40,
-                    borderRadius: 999,
-                  }}
-                  aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                >
-                  <MenuIcon />
-                </IconButton>
-              ) : null}
+              {/* DESKTOP ONLY */}
+              <IconButton
+                onClick={onMenuClick}
+                sx={{
+                  display: { xs: "none", md: "inline-flex" },
+                  border: "1px solid",
+                  borderColor: "divider",
+                  width: 40,
+                  height: 40,
+                  borderRadius: 999,
+                }}
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                <MenuIcon />
+              </IconButton>
 
               <Box
                 component={RouterLink}
                 to="/markets"
-                aria-label="Go to markets"
                 sx={{
                   display: "inline-flex",
                   alignItems: "center",
                   height: logoHeight,
-                  textDecoration: "none",
-                  "& img": {
-                    height: "100%",
-                    width: "auto",
-                  },
+                  "& img": { height: "100%" },
                 }}
               >
                 <img src={Logo} alt="Ihtimal" />
@@ -265,142 +201,34 @@ export function TopNav({
             </Box>
 
             {/* CENTER: search */}
-            <Box
-              ref={anchorRef}
-              sx={{
-                flex: 1,
-                minWidth: 0,
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
-              <Box
-                sx={{
-                  width: { xs: "100%", sm: 520, md: 620, lg: 680 },
-                  maxWidth: "100%",
+            <Box ref={anchorRef} sx={{ flex: 1 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search markets"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    height: searchHeight,
+                    borderRadius: searchRadius,
+                    bgcolor: "rgba(17,24,39,0.04)",
+                    "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+                  },
                 }}
-              >
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Search markets"
-                  value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    setHighlightIndex(0);
-                  }}
-                  onFocus={() => setOpen(true)}
-                  onBlur={() => {
-                    window.setTimeout(() => setOpen(false), 120);
-                  }}
-                  onKeyDown={onKeyDown}
-                  inputRef={inputRef}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" />
-                      </InputAdornment>
-                    ),
-                    sx: {
-                      height: searchHeight,
-                      borderRadius: searchRadius,
-                      bgcolor: "rgba(17,24,39,0.04)",
-                      border: "1px solid rgba(17,24,39,0.14)",
-                      "&:hover": {
-                        bgcolor: "rgba(17,24,39,0.06)",
-                        borderColor: "rgba(17,24,39,0.22)",
-                      },
-                      "&.Mui-focused": {
-                        bgcolor: "rgba(17,24,39,0.06)",
-                        borderColor: "rgba(17,24,39,0.32)",
-                      },
-                      "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-                    },
-                  }}
-                />
-
-                <Popper
-                  open={open && selectable.length > 0}
-                  anchorEl={anchorRef.current}
-                  placement="bottom-start"
-                  sx={{ zIndex: 1400, width: "100%", mt: 1 }}
-                >
-                  <Paper
-                    sx={{
-                      border: "1px solid",
-                      borderColor: "divider",
-                      borderRadius: 2,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <List dense disablePadding>
-                      {selectable.map((item, idx) => {
-                        const selected = idx === highlightIndex;
-                        const primary = item.label;
-                        const secondary =
-                          item.type === "market" ? item.sublabel : item.type === "recent" ? "Recent search" : "";
-
-                        return (
-                          <ListItemButton
-                            key={`${item.type}-${item.type === "market" ? item.id : item.q}-${idx}`}
-                            selected={selected}
-                            onMouseEnter={() => setHighlightIndex(idx)}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              if (item.type === "market") goToMarket(item.id);
-                              if (item.type === "recent") goToSearch(item.q);
-                              if (item.type === "search") goToSearch(item.q);
-                            }}
-                          >
-                            <ListItemText
-                              primary={
-                                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                  {primary}
-                                </Typography>
-                              }
-                              secondary={
-                                secondary ? (
-                                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                                    {secondary}
-                                  </Typography>
-                                ) : null
-                              }
-                            />
-                          </ListItemButton>
-                        );
-                      })}
-                    </List>
-                  </Paper>
-                </Popper>
-              </Box>
+              />
             </Box>
 
-            {/* RIGHT: how it works + auth CTAs */}
-            <Box sx={{ display: "flex", gap: 1, flex: "0 0 auto", alignItems: "center" }}>
-              {/* Polymarket-like "How it works" */}
-              <Link
-                component="button"
-                onClick={() => setHowOpen(true)}
-                underline="none"
-                sx={{
-                  display: { xs: "none", md: "inline-flex" },
-                  alignItems: "center",
-                  gap: 0.75,
-                  fontWeight: 600,
-                  color: "primary.main",
-                  px: 1,
-                  py: 0.5,
-                  borderRadius: 999,
-                  "&:hover": { bgcolor: "rgba(25,118,210,0.08)" },
-                }}
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 18 }} />
-                How it works
-              </Link>
-
-              {/* Compact icon on smaller screens */}
+            {/* RIGHT: mobile account + how it works + desktop auth */}
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+              {/* MOBILE account */}
               <IconButton
-                onClick={() => setHowOpen(true)}
+                onClick={(e) => setAcctAnchorEl(e.currentTarget)}
                 sx={{
                   display: { xs: "inline-flex", md: "none" },
                   border: "1px solid",
@@ -409,17 +237,72 @@ export function TopNav({
                   height: 40,
                   borderRadius: 999,
                 }}
-                aria-label="How it works"
+              >
+                <AccountCircleOutlinedIcon fontSize="small" />
+              </IconButton>
+
+              <Menu
+                anchorEl={acctAnchorEl}
+                open={acctOpen}
+                onClose={() => setAcctAnchorEl(null)}
+                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                transformOrigin={{ vertical: "top", horizontal: "right" }}
+              >
+                <MenuItem onClick={() => navigate("/profile")}>
+                  <ListItemIcon>
+                    <PersonOutlineIcon fontSize="small" />
+                  </ListItemIcon>
+                  Profile
+                </MenuItem>
+
+                <Divider />
+
+                <MenuItem onClick={() => navigate("/login")}>
+                  <ListItemIcon>
+                    <LoginIcon fontSize="small" />
+                  </ListItemIcon>
+                  Log in
+                </MenuItem>
+
+                <MenuItem onClick={() => navigate("/signup")}>
+                  <ListItemIcon>
+                    <PersonAddAltIcon fontSize="small" />
+                  </ListItemIcon>
+                  Sign up
+                </MenuItem>
+
+                <Divider />
+
+                <MenuItem onClick={toggleColorMode}>
+                  <ListItemIcon>
+                    {mode === "dark" ? (
+                      <DarkModeOutlinedIcon fontSize="small" />
+                    ) : (
+                      <LightModeOutlinedIcon fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  Dark mode
+                  <Switch checked={mode === "dark"} sx={{ ml: "auto" }} />
+                </MenuItem>
+              </Menu>
+
+              {/* HOW IT WORKS */}
+              <IconButton
+                onClick={() => setHowOpen(true)}
+                sx={{
+                  border: "1px solid",
+                  borderColor: "divider",
+                  width: 40,
+                  height: 40,
+                  borderRadius: 999,
+                }}
               >
                 <InfoOutlinedIcon fontSize="small" />
               </IconButton>
 
               {!isMobile && (
                 <>
-                  <Button component={RouterLink} to="/login" variant="text">
-                    Log in
-                  </Button>
-
+                  <Button component={RouterLink} to="/login">Log in</Button>
                   <Button component={RouterLink} to="/signup" variant="contained">
                     Sign up
                   </Button>
