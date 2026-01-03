@@ -1,8 +1,16 @@
-import { createContext, useContext, useMemo, useState } from "react";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
-import { theme as baseTheme } from "../app/theme";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { ThemeProvider } from "@mui/material/styles";
+import { getAppTheme, type AppColorMode } from "../app/theme";
 
-const ColorModeContext = createContext({
+type ColorModeContextValue = {
+  mode: AppColorMode;
+  toggleColorMode: () => void;
+};
+
+const STORAGE_KEY = "ihtimal-color-mode";
+
+const ColorModeContext = createContext<ColorModeContextValue>({
+  mode: "light",
   toggleColorMode: () => {},
 });
 
@@ -10,32 +18,37 @@ export function useColorMode() {
   return useContext(ColorModeContext);
 }
 
-export function ColorModeProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [mode, setMode] = useState<"light" | "dark">("light");
+export function ColorModeProvider({ children }: { children: React.ReactNode }) {
+  const [mode, setMode] = useState<AppColorMode>("light");
 
-  const colorMode = useMemo(
+  // Load persisted preference (if any)
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw === "light" || raw === "dark") setMode(raw);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Persist preference
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, mode);
+    } catch {
+      // ignore
+    }
+  }, [mode]);
+
+  const colorMode = useMemo<ColorModeContextValue>(
     () => ({
-      toggleColorMode: () =>
-        setMode((prev) => (prev === "light" ? "dark" : "light")),
+      mode,
+      toggleColorMode: () => setMode((prev) => (prev === "light" ? "dark" : "light")),
     }),
-    []
-  );
-
-  const theme = useMemo(
-    () =>
-      createTheme({
-        ...baseTheme,
-        palette: {
-          ...baseTheme.palette,
-          mode,
-        },
-      }),
     [mode]
   );
+
+  const theme = useMemo(() => getAppTheme(mode), [mode]);
 
   return (
     <ColorModeContext.Provider value={colorMode}>

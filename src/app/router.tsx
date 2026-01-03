@@ -11,6 +11,7 @@ import { ActivityPage } from "../pages/ActivityPage";
 import { WatchlistPage } from "../pages/WatchlistPage";
 import { LoginPage } from "../pages/LoginPage";
 import { SignupPage } from "../pages/SignupPage";
+import { ProfilePage } from "../pages/ProfilePage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { path: "/portfolio", element: <PortfolioPage /> },
       { path: "/wallet", element: <WalletPage /> },
       { path: "/activity", element: <ActivityPage /> },
+      { path: "/profile", element: <ProfilePage /> },
     ],
   },
 ]);
