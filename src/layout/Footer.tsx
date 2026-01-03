@@ -10,11 +10,11 @@ import {
   SvgIcon,
 } from "@mui/material";
 import type { SvgIconProps } from "@mui/material";
-import GitHubIcon from "@mui/icons-material/GitHub";
+// import GitHubIcon from "@mui/icons-material/GitHub";
 import TwitterIcon from "@mui/icons-material/Twitter";
-import LinkedInIcon from "@mui/icons-material/LinkedIn";
+// import LinkedInIcon from "@mui/icons-material/LinkedIn";
 import InstagramIcon from "@mui/icons-material/Instagram";
-import RedditIcon from "@mui/icons-material/Reddit";
+// import RedditIcon from "@mui/icons-material/Reddit";
 import TelegramIcon from "@mui/icons-material/Telegram";
 import IhtimalLogo from "../assets/ihtimal-logo.svg";
 import { Link as RouterLink } from "react-router-dom";
@@ -145,13 +145,13 @@ export function Footer() {
       // X: MUI only has Twitter bird icon; use it as X for now.
       { label: "X", href: "#", icon: <TwitterIcon fontSize="small" /> },
 
-      { label: "LinkedIn", href: "#", icon: <LinkedInIcon fontSize="small" /> },
+    //   { label: "LinkedIn", href: "#", icon: <LinkedInIcon fontSize="small" /> },
       { label: "Discord", href: "#", icon: <DiscordBrandIcon fontSize="small" /> },
       { label: "Instagram", href: "#", icon: <InstagramIcon fontSize="small" /> },
-      { label: "Reddit", href: "#", icon: <RedditIcon fontSize="small" /> },
-      { label: "TikTok", href: "#", icon: <TikTokBrandIcon fontSize="small" /> },
+    //   { label: "Reddit", href: "#", icon: <RedditIcon fontSize="small" /> },
+    //   { label: "TikTok", href: "#", icon: <TikTokBrandIcon fontSize="small" /> },
       { label: "Telegram", href: "#", icon: <TelegramIcon fontSize="small" /> },
-      { label: "GitHub", href: "#", icon: <GitHubIcon fontSize="small" /> },
+    //   { label: "GitHub", href: "#", icon: <GitHubIcon fontSize="small" /> },
     ],
     []
   );
