@@ -195,7 +195,8 @@ export function TopNav({
           bgcolor: "background.paper",
           borderBottom: 1,
           borderColor: "divider",
-          width: "100vw",
+          // Avoid 100vw (can cause horizontal overflow due to scrollbar width).
+          width: "100%",
           left: 0,
           right: 0,
         }}
