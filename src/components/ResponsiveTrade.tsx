@@ -424,23 +424,6 @@ export function ResponsiveTrade({
               </Typography>
 
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                {/* <Button
-                  size="small"
-                  variant={snap === "HALF" ? "contained" : "outlined"}
-                  onClick={() => snapTo("HALF")}
-                  sx={{ textTransform: "none", borderRadius: 2, fontWeight: 700, minWidth: 0, px: 1 }}
-                >
-                  Half
-                </Button>
-                <Button
-                  size="small"
-                  variant={snap === "FULL" ? "contained" : "outlined"}
-                  onClick={() => snapTo("FULL")}
-                  sx={{ textTransform: "none", borderRadius: 2, fontWeight: 700, minWidth: 0, px: 1 }}
-                >
-                  Full
-                </Button> */}
-
                 <IconButton
                   onClick={() => setOpen(false)}
                   aria-label="Close trade"

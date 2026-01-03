@@ -1,5 +1,5 @@
 import { Box, Chip, Divider, Link, Paper, Stack, Typography } from "@mui/material";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 
 import { mockMarkets } from "../data/mockMarkets";
@@ -26,6 +26,15 @@ export function MarketDetailPage() {
   const { id } = useParams();
   const market = useMemo(() => mockMarkets.find((m) => m.id === id), [id]);
   const [range, setRange] = useState<TimeRangeKey>("1D");
+
+  // Update browser tab title with the market question.
+  useEffect(() => {
+    const prev = document.title;
+    if (market?.question) document.title = `${market.question} • Ihtimal`;
+    return () => {
+      document.title = prev;
+    };
+  }, [market?.question]);
 
   const position = useAccountStore(
     (s) => s.positions.find((p) => p.marketId === id && p.status === "OPEN" && p.shares > 0) ?? null
