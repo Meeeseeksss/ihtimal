@@ -10,6 +10,7 @@ import {
   Toolbar,
 } from "@mui/material";
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
+import ExploreOutlinedIcon from "@mui/icons-material/ExploreOutlined";
 import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
 import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
@@ -41,6 +42,7 @@ export function SideNav({
   const isTemporary = variant === "temporary";
 
   const navItems = [
+    { label: "Discover", to: "/", icon: <ExploreOutlinedIcon /> },
     { label: "Markets", to: "/markets", icon: <StorefrontOutlinedIcon /> },
     { label: "Watchlist", to: "/watchlist", icon: <StarBorderRoundedIcon /> },
     { label: "Portfolio", to: "/portfolio", icon: <TimelineOutlinedIcon /> },

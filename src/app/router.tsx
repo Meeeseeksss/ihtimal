@@ -12,6 +12,7 @@ import { WatchlistPage } from "../pages/WatchlistPage";
 import { LoginPage } from "../pages/LoginPage";
 import { SignupPage } from "../pages/SignupPage";
 import { ProfilePage } from "../pages/ProfilePage";
+import { HomePage } from "../pages/HomePage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -20,7 +21,7 @@ export const router = createBrowserRouter([
   {
     element: <AppShell />,
     children: [
-      { path: "/", element: <MarketsPage /> },
+      { path: "/", element: <HomePage /> },
       { path: "/markets", element: <MarketsPage /> },
       { path: "/markets/:id", element: <MarketDetailPage /> },
       { path: "/categories/:category", element: <CategoryPage /> },

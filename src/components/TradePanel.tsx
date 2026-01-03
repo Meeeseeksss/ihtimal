@@ -287,15 +287,15 @@ export function TradePanel({
       <Paper sx={{ p: 1.75, borderRadius: 2, bgcolor: surface }}>
         <Stack spacing={1.35}>
           {/* Header */}
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, paddingBottom:1.2 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 650 }}>
               Trade
             </Typography>
             <Chip size="small" variant="outlined" label={`Cash ${fmtUsd(walletCashUsd)}`} />
           </Box>
-
+{/* <br /> */}
           {/* Buy / Sell tabs + Market dropdown */}
-          <Box sx={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 1, paddingBottom:1.2 }}>
             <Box sx={{ display: "flex", gap: 2.25 }}>
               <UnderlineTab active={action === "BUY"} onClick={() => setAction("BUY")}>
                 Buy
