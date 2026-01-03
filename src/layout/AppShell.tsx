@@ -87,7 +87,7 @@ export function AppShell() {
           }
         }}
       />
-
+<br />
       <Box sx={{ display: "flex", width: "100%" }}>
         <SideNav
           width={sideWidth}
