@@ -1,4 +1,3 @@
-// src/components/TradePanel.tsx
 import {
   Alert,
   Box,
@@ -6,15 +5,15 @@ import {
   Chip,
   Divider,
   InputAdornment,
+  Menu,
+  MenuItem,
   Paper,
   Stack,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNotify } from "../app/notifications";
 import { accountActions, useAccountStore } from "../data/accountStore";
 import type { OrderBook } from "../data/mockMarketExtras";
@@ -23,13 +22,11 @@ import { ConfirmTradeDialog, type ConfirmTradePayload } from "./ConfirmTradeDial
 type OrderType = "MARKET" | "LIMIT";
 type Side = "YES" | "NO";
 type Action = "BUY" | "SELL";
-type AmountMode = "USD" | "SHARES";
 
 export type TradePreset = {
   action?: Action;
   side?: Side;
   orderType?: OrderType;
-  amountMode?: AmountMode;
   autoMax?: boolean;
 };
 
@@ -43,17 +40,16 @@ function fmtCents(p: number) {
 
 function fmtUsd(n: number) {
   if (!Number.isFinite(n)) return "$0.00";
-  const sign = n < 0 ? "-" : "";
-  return `${sign}$${Math.abs(n).toFixed(2)}`;
+  return `$${n.toFixed(2)}`;
 }
 
-function parsePositive(s: string) {
+function parseNonNeg(s: string) {
   const n = Number(s);
-  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (!Number.isFinite(n) || n < 0) return 0;
   return n;
 }
 
-// Keep consistent with accountStore.ts (mock fee model)
+// Mock fee model (keep consistent with accountStore.ts)
 const FEE_RATE = 0.01;
 const MIN_FEE = 0.1;
 function estimateFee(notionalUsd: number) {
@@ -85,7 +81,7 @@ export function TradePanel({
   yesPrice: number;
   orderBook?: OrderBook;
 
-  /** When true, disables the ticket (e.g. HALTED / RESOLVED). */
+  /** When true, disables the ticket (e.g. market halted / resolved). */
   isTradingDisabled?: boolean;
   /** Optional copy shown when trading is disabled. */
   tradingDisabledReason?: string;
@@ -109,45 +105,29 @@ export function TradePanel({
   const [action, setAction] = useState<Action>("BUY");
   const [side, setSide] = useState<Side>("YES");
   const [orderType, setOrderType] = useState<OrderType>("MARKET");
-  const [amountMode, setAmountMode] = useState<AmountMode>("USD");
 
-  const [usd, setUsd] = useState("25");
-  const [sharesInput, setSharesInput] = useState("");
-  const [limitCents, setLimitCents] = useState(String(Math.round((side === "YES" ? yesPrice : 1 - yesPrice) * 100)));
+  // Polymarket-style amount: big display + quick bumps
+  const [usd, setUsd] = useState("0");
+  const [limitCents, setLimitCents] = useState(String(Math.round(yesPrice * 100)));
 
   const [openConfirm, setOpenConfirm] = useState(false);
+
+  // Order type dropdown
+  const [orderMenuAnchor, setOrderMenuAnchor] = useState<HTMLElement | null>(null);
+  const orderMenuOpen = Boolean(orderMenuAnchor);
 
   const yesMid = clamp01(yesPrice);
   const noMid = clamp01(1 - yesPrice);
 
   const positionSharesBefore = useMemo(() => {
-    if (side === "YES") return posYes?.shares ?? 0;
-    return posNo?.shares ?? 0;
-  }, [side, posYes, posNo]);
+    return side === "YES" ? posYes?.shares ?? 0 : posNo?.shares ?? 0;
+  }, [posYes, posNo, side]);
 
-  // Keep limit default aligned with selected side.
-  useEffect(() => {
-    setLimitCents(String(Math.round((side === "YES" ? yesPrice : 1 - yesPrice) * 100)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [side]);
-
-  // Apply preset when key changes.
-  useEffect(() => {
-    if (!preset || presetKey == null) return;
-    if (preset.action) setAction(preset.action);
-    if (preset.side) setSide(preset.side);
-    if (preset.orderType) setOrderType(preset.orderType);
-    if (preset.amountMode) setAmountMode(preset.amountMode);
-    if (preset.autoMax) setTimeout(() => handleMax(), 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presetKey]);
-
-  // Best execution price proxy based on YES-side order book.
+  // Best execution price proxy based on YES-side order book
   const bestAskYes = orderBook?.asks?.[0]?.price;
   const bestBidYes = orderBook?.bids?.[0]?.price;
 
   const marketSidePrice = useMemo(() => {
-    // Convert YES book to side price for YES/NO.
     if (action === "BUY") {
       if (side === "YES") return bestAskYes ?? yesPrice;
       return clamp01(1 - (bestBidYes ?? yesPrice));
@@ -157,25 +137,36 @@ export function TradePanel({
     return clamp01(1 - (bestAskYes ?? yesPrice));
   }, [action, side, bestAskYes, bestBidYes, yesPrice]);
 
+  // Keep limit default aligned with selected side
+  useEffect(() => {
+    const p = side === "YES" ? yesPrice : 1 - yesPrice;
+    setLimitCents(String(Math.round(p * 100)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [side]);
+
+  // Apply preset when key changes
+  useEffect(() => {
+    if (!preset || presetKey == null) return;
+    if (preset.action) setAction(preset.action);
+    if (preset.side) setSide(preset.side);
+    if (preset.orderType) setOrderType(preset.orderType);
+    if (preset.autoMax) setTimeout(() => handleMax(), 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetKey]);
+
   const limitSidePrice = useMemo(() => clamp01(Number(limitCents || 0) / 100), [limitCents]);
   const execSidePrice = orderType === "MARKET" ? clamp01(marketSidePrice) : limitSidePrice;
 
-  const inputUsd = parsePositive(usd);
-  const inputShares = parsePositive(sharesInput);
-
+  const inputUsd = parseNonNeg(usd);
   const shares = useMemo(() => {
-    if (amountMode === "SHARES") return inputShares;
     if (execSidePrice <= 0) return 0;
     return inputUsd / execSidePrice;
-  }, [amountMode, inputShares, inputUsd, execSidePrice]);
+  }, [inputUsd, execSidePrice]);
 
   const notionalUsd = useMemo(() => shares * execSidePrice, [shares, execSidePrice]);
   const feeUsd = useMemo(() => estimateFee(notionalUsd), [notionalUsd]);
 
-  const totalCostUsd = useMemo(
-    () => (action === "BUY" ? notionalUsd + feeUsd : undefined),
-    [action, notionalUsd, feeUsd]
-  );
+  const totalCostUsd = useMemo(() => (action === "BUY" ? notionalUsd + feeUsd : undefined), [action, notionalUsd, feeUsd]);
   const netProceedsUsd = useMemo(
     () => (action === "SELL" ? Math.max(0, notionalUsd - feeUsd) : undefined),
     [action, notionalUsd, feeUsd]
@@ -183,14 +174,9 @@ export function TradePanel({
 
   const payoutUsd = useMemo(() => shares * 1, [shares]);
   const maxProfitUsd = useMemo(() => {
-    if (action !== "BUY") return undefined;
+    if (action !== "BUY") return 0;
     return payoutUsd - (totalCostUsd ?? 0);
   }, [action, payoutUsd, totalCostUsd]);
-
-  const positionSharesAfter = useMemo(() => {
-    if (action === "SELL") return Math.max(0, positionSharesBefore - shares);
-    return positionSharesBefore + shares;
-  }, [action, positionSharesBefore, shares]);
 
   const disabledReason = useMemo(() => {
     if (isTradingDisabled) return tradingDisabledReason || "Trading disabled";
@@ -201,7 +187,7 @@ export function TradePanel({
     }
 
     if (action === "BUY") {
-      if (totalCostUsd != null && totalCostUsd > walletCashUsd + 1e-9) return "Insufficient cash";
+      if ((totalCostUsd ?? 0) > walletCashUsd + 1e-9) return "Insufficient cash";
     } else {
       if (positionSharesBefore <= 0) return `No ${side} shares`;
       if (shares > positionSharesBefore + 1e-9) return "Too many shares";
@@ -209,46 +195,32 @@ export function TradePanel({
 
     return null;
   }, [
-    isTradingDisabled,
-    tradingDisabledReason,
-    shares,
-    orderType,
-    limitSidePrice,
     action,
-    totalCostUsd,
-    walletCashUsd,
+    isTradingDisabled,
+    limitSidePrice,
+    orderType,
     positionSharesBefore,
+    shares,
     side,
+    totalCostUsd,
+    tradingDisabledReason,
+    walletCashUsd,
   ]);
 
-  function setQuickUsd(v: number) {
-    setAmountMode("USD");
-    setUsd(String(v));
-  }
-  function setQuickShares(v: number) {
-    setAmountMode("SHARES");
-    setSharesInput(String(v));
+  function bumpUsd(delta: number) {
+    const next = Math.max(0, parseNonNeg(usd) + delta);
+    setUsd(String(Math.round(next)));
   }
 
   function handleMax() {
     if (action === "BUY") {
       const maxNotional = maxNotionalForBalance(walletCashUsd);
-      if (amountMode === "USD") {
-        setUsd(maxNotional.toFixed(2));
-      } else {
-        const maxShares = execSidePrice > 0 ? maxNotional / execSidePrice : 0;
-        setSharesInput(maxShares > 0 ? maxShares.toFixed(2) : "");
-      }
+      setUsd(String(Math.floor(maxNotional)));
       return;
     }
-
-    // SELL
-    if (amountMode === "SHARES") {
-      setSharesInput(positionSharesBefore > 0 ? positionSharesBefore.toFixed(2) : "");
-    } else {
-      const maxNotional = positionSharesBefore * execSidePrice;
-      setUsd(maxNotional > 0 ? maxNotional.toFixed(2) : "");
-    }
+    // SELL: set amount to full notional at current price
+    const maxNotional = positionSharesBefore * execSidePrice;
+    setUsd(String(Math.floor(maxNotional)));
   }
 
   const confirmPayload: ConfirmTradePayload = {
@@ -267,368 +239,257 @@ export function TradePanel({
     positionSharesBefore,
   };
 
-  const title = `${action === "BUY" ? "Buy" : "Sell"} ${side}`;
-  const ctaLabel =
-    disabledReason ||
-    (action === "BUY" ? `Review ${side} buy` : `Review ${side} sell`);
+  // --- Match app theme (Apple-like light) ---
+  const divider = theme.palette.divider;
+  const surface = theme.palette.background.paper;
+  const soft = alpha(theme.palette.text.primary, 0.04);
+  const soft2 = alpha(theme.palette.text.primary, 0.06);
 
-  const yesBg = alpha(theme.palette.success.main, theme.palette.mode === "dark" ? 0.16 : 0.10);
-  const noBg = alpha(theme.palette.error.main, theme.palette.mode === "dark" ? 0.16 : 0.10);
+  const yesLabelPrice = action === "BUY" ? (bestAskYes ?? yesMid) : (bestBidYes ?? yesMid);
+  const noLabelPrice = clamp01(1 - yesLabelPrice);
 
-  const selectedYes = side === "YES";
-  const selectedNo = side === "NO";
+  const yesSelected = side === "YES";
+  const noSelected = side === "NO";
 
-  const ctaColor: "success" | "error" | "primary" =
-    action === "BUY" ? (side === "YES" ? "success" : "error") : "primary";
+  const yesFill = alpha(theme.palette.success.main, 0.16);
+  const yesFillHover = alpha(theme.palette.success.main, 0.22);
+  const yesStroke = alpha(theme.palette.success.main, 0.38);
+
+  const noFill = alpha("#000", 0.035);
+  const noFillHover = alpha("#000", 0.06);
+
+  const ctaDisabled = Boolean(disabledReason);
+
+  const payOrReceiveLabel = action === "BUY" ? "You pay (est.)" : "You receive (est.)";
+  const payOrReceiveValue =
+    shares > 0
+      ? action === "BUY"
+        ? fmtUsd(totalCostUsd ?? 0)
+        : fmtUsd(netProceedsUsd ?? 0)
+      : "—";
+
+  const summaryRows = useMemo(() => {
+    const rows = [
+      { k: "Avg price", v: shares > 0 ? fmtCents(execSidePrice) : "—" },
+      { k: "Shares", v: shares > 0 ? shares.toFixed(2) : "—" },
+      { k: "Fee", v: feeUsd > 0 ? fmtUsd(feeUsd) : "—" },
+    ];
+    if (action === "BUY") {
+      rows.push({ k: "Payout", v: shares > 0 ? fmtUsd(payoutUsd) : "—" });
+      rows.push({ k: "Max profit", v: shares > 0 ? fmtUsd(maxProfitUsd) : "—" });
+    } else {
+      rows.push({ k: "Notional", v: shares > 0 ? fmtUsd(notionalUsd) : "—" });
+    }
+    return rows;
+  }, [action, execSidePrice, feeUsd, maxProfitUsd, notionalUsd, payoutUsd, shares]);
 
   return (
     <>
-      <Paper
-        sx={{
-          p: 1.5,
-          borderRadius: 2,
-          border: "1px solid",
-          borderColor: "divider",
-          boxShadow: "none",
-        }}
-      >
-        <Stack spacing={1.1}>
-          {/* Header (Kalshi-ish: clean, minimal) */}
+      <Paper sx={{ p: 1.75, borderRadius: 2, bgcolor: surface }}>
+        <Stack spacing={1.35}>
+          {/* Header */}
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 950, lineHeight: 1.1 }}>
-                Trade
-              </Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {orderType === "MARKET" ? "Market" : "Limit"} • Est. {fmtCents(execSidePrice)}
-              </Typography>
-            </Box>
-            <Chip size="small" label={`Cash ${fmtUsd(walletCashUsd)}`} variant="outlined" />
+            <Typography variant="subtitle1" sx={{ fontWeight: 650 }}>
+              Trade
+            </Typography>
+            <Chip size="small" variant="outlined" label={`Cash ${fmtUsd(walletCashUsd)}`} />
           </Box>
 
-          {/* Buy/Sell + Market/Limit (segmented, compact) */}
+          {/* Buy / Sell tabs + Market dropdown */}
+          <Box sx={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 1 }}>
+            <Box sx={{ display: "flex", gap: 2.25 }}>
+              <UnderlineTab active={action === "BUY"} onClick={() => setAction("BUY")}>
+                Buy
+              </UnderlineTab>
+              <UnderlineTab active={action === "SELL"} onClick={() => setAction("SELL")}>
+                Sell
+              </UnderlineTab>
+            </Box>
+
+            <Button
+              size="small"
+              variant="text"
+              onClick={(e) => setOrderMenuAnchor(e.currentTarget)}
+              sx={{
+                textTransform: "none",
+                fontWeight: 600,
+                px: 1.1,
+                py: 0.55,
+                borderRadius: 1.5,
+                bgcolor: soft2,
+                border: `1px solid ${divider}`,
+                "&:hover": { bgcolor: soft2 },
+              }}
+            >
+              {orderType === "MARKET" ? "Market" : "Limit"} ▾
+            </Button>
+
+            <Menu
+              anchorEl={orderMenuAnchor}
+              open={orderMenuOpen}
+              onClose={() => setOrderMenuAnchor(null)}
+              transformOrigin={{ horizontal: "right", vertical: "top" }}
+              anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+            >
+              <MenuItem
+                onClick={() => {
+                  setOrderType("MARKET");
+                  setOrderMenuAnchor(null);
+                }}
+              >
+                Market
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setOrderType("LIMIT");
+                  setOrderMenuAnchor(null);
+                }}
+              >
+                Limit
+              </MenuItem>
+            </Menu>
+          </Box>
+
+          {/* YES / NO pills */}
           <Box sx={{ display: "flex", gap: 1 }}>
-            <ToggleButtonGroup
-              value={action}
-              exclusive
-              onChange={(_, v) => v && setAction(v)}
-              size="small"
-              sx={{
-                flex: 1,
-                borderRadius: 999,
-                "& .MuiToggleButton-root": { flex: 1, fontWeight: 900, py: 0.7 },
-              }}
-            >
-              <ToggleButton value="BUY">Buy</ToggleButton>
-              <ToggleButton value="SELL">Sell</ToggleButton>
-            </ToggleButtonGroup>
-
-            <ToggleButtonGroup
-              value={orderType}
-              exclusive
-              onChange={(_, v) => v && setOrderType(v)}
-              size="small"
-              sx={{
-                flex: 1,
-                borderRadius: 999,
-                "& .MuiToggleButton-root": { flex: 1, fontWeight: 850, py: 0.7 },
-              }}
-            >
-              <ToggleButton value="MARKET">Market</ToggleButton>
-              <ToggleButton value="LIMIT">Limit</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
-
-          {/* Outcome selector (Kalshi-like: two big price buttons) */}
-          <Box
-            sx={{
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 2,
-              overflow: "hidden",
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-            }}
-          >
-            <Box
+            <Button
+              fullWidth
+              disableElevation
+              disabled={Boolean(isTradingDisabled)}
               onClick={() => setSide("YES")}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && setSide("YES")}
               sx={{
-                p: 1.1,
-                cursor: isTradingDisabled ? "not-allowed" : "pointer",
-                bgcolor: selectedYes ? yesBg : "transparent",
-                borderRight: "1px solid",
-                borderColor: "divider",
-                outline: "none",
-                "&:hover": { bgcolor: selectedYes ? yesBg : alpha(theme.palette.success.main, 0.06) },
+                textTransform: "none",
+                fontWeight: 650,
+                borderRadius: 2,
+                py: 1.05,
+                border: `1px solid ${yesSelected ? yesStroke : divider}`,
+                bgcolor: yesSelected ? yesFill : soft,
+                "&:hover": { bgcolor: yesSelected ? yesFillHover : soft2 },
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                <Typography variant="body2" sx={{ fontWeight: 950 }}>
-                  YES
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 950 }}>
-                  {fmtCents(yesMid)}
-                </Typography>
-              </Box>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {Math.round(yesMid * 100)}% chance
-              </Typography>
-              {selectedYes ? (
-                <Typography variant="caption" sx={{ display: "block", mt: 0.25, fontWeight: 850, color: "text.primary" }}>
-                  Selected
-                </Typography>
-              ) : null}
-            </Box>
+              Yes {fmtCents(clamp01(yesLabelPrice))}
+            </Button>
 
-            <Box
+            <Button
+              fullWidth
+              disableElevation
+              disabled={Boolean(isTradingDisabled)}
               onClick={() => setSide("NO")}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && setSide("NO")}
               sx={{
-                p: 1.1,
-                cursor: isTradingDisabled ? "not-allowed" : "pointer",
-                bgcolor: selectedNo ? noBg : "transparent",
-                outline: "none",
-                "&:hover": { bgcolor: selectedNo ? noBg : alpha(theme.palette.error.main, 0.06) },
+                textTransform: "none",
+                fontWeight: 650,
+                borderRadius: 2,
+                py: 1.05,
+                border: `1px solid ${divider}`,
+                bgcolor: noSelected ? noFillHover : noFill,
+                "&:hover": { bgcolor: noFillHover },
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                <Typography variant="body2" sx={{ fontWeight: 950 }}>
-                  NO
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 950 }}>
-                  {fmtCents(noMid)}
-                </Typography>
-              </Box>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {Math.round(noMid * 100)}% chance
-              </Typography>
-              {selectedNo ? (
-                <Typography variant="caption" sx={{ display: "block", mt: 0.25, fontWeight: 850, color: "text.primary" }}>
-                  Selected
-                </Typography>
-              ) : null}
-            </Box>
+              No {fmtCents(clamp01(noLabelPrice))}
+            </Button>
           </Box>
 
-          {/* Amount block (Kalshi-ish: one clean row + quick picks) */}
-          <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1.1 }}>
-            <Stack spacing={0.85}>
-              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                <ToggleButtonGroup
-                  value={amountMode}
-                  exclusive
-                  onChange={(_, v) => v && setAmountMode(v)}
-                  size="small"
-                  sx={{
-                    borderRadius: 999,
-                    "& .MuiToggleButton-root": { px: 1.15, fontWeight: 850, py: 0.55 },
-                  }}
-                >
-                  <ToggleButton value="USD">$</ToggleButton>
-                  <ToggleButton value="SHARES">Shares</ToggleButton>
-                </ToggleButtonGroup>
-
-                <Typography variant="caption" sx={{ color: "text.secondary", ml: "auto" }}>
-                  You have <b>{positionSharesBefore.toFixed(0)}</b> sh
-                </Typography>
-              </Box>
-
-              <Stack direction="row" spacing={1} alignItems="stretch">
-                {amountMode === "USD" ? (
-                  <TextField
-                    label={action === "BUY" ? "Spend" : "Notional"}
-                    value={usd}
-                    onChange={(e) => setUsd(e.target.value)}
-                    fullWidth
-                    size="small"
-                    inputMode="decimal"
-                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                  />
-                ) : (
-                  <TextField
-                    label="Shares"
-                    value={sharesInput}
-                    onChange={(e) => setSharesInput(e.target.value)}
-                    fullWidth
-                    size="small"
-                    inputMode="decimal"
-                  />
-                )}
-
-                {orderType === "LIMIT" ? (
-                  <TextField
-                    label="Limit ¢"
-                    value={limitCents}
-                    onChange={(e) => setLimitCents(e.target.value)}
-                    size="small"
-                    sx={{ width: 118, flex: "0 0 auto" }}
-                    inputMode="numeric"
-                  />
-                ) : (
-                  <Box
-                    sx={{
-                      width: 118,
-                      flex: "0 0 auto",
-                      border: "1px solid",
-                      borderColor: "divider",
-                      borderRadius: 1.5,
-                      px: 1,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.04 : 0.03),
-                    }}
-                  >
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                      Est. <b>{fmtCents(execSidePrice)}</b>
-                    </Typography>
-                  </Box>
-                )}
-
-                <Button variant="outlined" onClick={handleMax} size="small" sx={{ width: 74, flex: "0 0 auto" }}>
-                  Max
-                </Button>
-              </Stack>
-
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
-                {amountMode === "USD" ? (
-                  <>
-                    <Button size="small" variant="text" onClick={() => setQuickUsd(10)} sx={{ minWidth: 0, px: 0.75 }}>
-                      $10
-                    </Button>
-                    <Button size="small" variant="text" onClick={() => setQuickUsd(25)} sx={{ minWidth: 0, px: 0.75 }}>
-                      $25
-                    </Button>
-                    <Button size="small" variant="text" onClick={() => setQuickUsd(50)} sx={{ minWidth: 0, px: 0.75 }}>
-                      $50
-                    </Button>
-                    <Button size="small" variant="text" onClick={() => setQuickUsd(100)} sx={{ minWidth: 0, px: 0.75 }}>
-                      $100
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button size="small" variant="text" onClick={() => setQuickShares(10)} sx={{ minWidth: 0, px: 0.75 }}>
-                      10
-                    </Button>
-                    <Button size="small" variant="text" onClick={() => setQuickShares(50)} sx={{ minWidth: 0, px: 0.75 }}>
-                      50
-                    </Button>
-                    <Button size="small" variant="text" onClick={() => setQuickShares(100)} sx={{ minWidth: 0, px: 0.75 }}>
-                      100
-                    </Button>
-                    <Button size="small" variant="text" onClick={() => setQuickShares(250)} sx={{ minWidth: 0, px: 0.75 }}>
-                      250
-                    </Button>
-                  </>
-                )}
-
-                <Box sx={{ flexGrow: 1 }} />
-
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  Shares <b>{shares > 0 ? shares.toFixed(2) : "—"}</b>
-                </Typography>
-              </Box>
-            </Stack>
-          </Box>
-
-          {/* Summary (fixed: cleaner, with a primary “You pay/receive” row) */}
-          <Box
-            sx={{
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 2,
-              p: 1.1,
-              bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.04 : 0.03),
-            }}
-          >
+          {/* Amount block */}
+          <Box sx={{ border: `1px solid ${divider}`, borderRadius: 2, p: 1.25, bgcolor: soft }}>
             <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 950 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "text.secondary" }}>
+                Amount
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.25, lineHeight: 1 }}>
+                ${Math.round(parseNonNeg(usd))}
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}>
+              <MiniPill onClick={() => bumpUsd(1)}>+$1</MiniPill>
+              <MiniPill onClick={() => bumpUsd(20)}>+$20</MiniPill>
+              <MiniPill onClick={() => bumpUsd(100)}>+$100</MiniPill>
+              <MiniPill onClick={handleMax}>Max</MiniPill>
+            </Box>
+
+            <Box sx={{ mt: 1 }}>
+              <TextField
+                value={usd}
+                onChange={(e) => setUsd(e.target.value)}
+                size="small"
+                fullWidth
+                placeholder="0"
+                inputMode="numeric"
+                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+              />
+            </Box>
+
+            {orderType === "LIMIT" ? (
+              <Box sx={{ mt: 1 }}>
+                <TextField
+                  value={limitCents}
+                  onChange={(e) => setLimitCents(e.target.value)}
+                  size="small"
+                  fullWidth
+                  inputMode="numeric"
+                  label="Limit price (¢)"
+                />
+              </Box>
+            ) : null}
+          </Box>
+
+          {/* Summary */}
+          <Box sx={{ border: `1px solid ${divider}`, borderRadius: 2, p: 1.2, bgcolor: surface }}>
+            <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 650 }}>
                 Summary
               </Typography>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {title}
+                {action === "BUY" ? "Buying" : "Selling"} {yesSelected ? "Yes" : "No"}
               </Typography>
             </Box>
 
-            <Divider sx={{ my: 0.85 }} />
+            <Divider sx={{ my: 1 }} />
 
-            {/* Primary row */}
-            {action === "BUY" ? (
-              <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "baseline" }}>
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  You pay (est.)
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 950, lineHeight: 1.05 }}>
-                  {totalCostUsd != null && totalCostUsd > 0 ? fmtUsd(totalCostUsd) : "—"}
-                </Typography>
-              </Box>
-            ) : (
-              <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "baseline" }}>
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  You receive (est.)
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 950, lineHeight: 1.05 }}>
-                  {netProceedsUsd != null && netProceedsUsd > 0 ? fmtUsd(netProceedsUsd) : "—"}
-                </Typography>
-              </Box>
-            )}
-
-            <Box sx={{ display: "grid", gap: 0.5, mt: 0.85 }}>
-              <SummaryLine label="Avg price" value={shares > 0 ? fmtCents(execSidePrice) : "—"} />
-              <SummaryLine label="Notional" value={notionalUsd > 0 ? fmtUsd(notionalUsd) : "—"} />
-              <SummaryLine label="Fee" value={feeUsd > 0 ? fmtUsd(feeUsd) : "—"} />
-
-              {action === "BUY" ? (
-                <>
-                  <SummaryLine label="Payout if correct" value={shares > 0 ? fmtUsd(payoutUsd) : "—"} />
-                  <SummaryLine
-                    label="Max profit"
-                    value={shares > 0 ? fmtUsd(maxProfitUsd ?? 0) : "—"}
-                    strong
-                  />
-                  <SummaryLine label="Max loss" value={totalCostUsd != null && totalCostUsd > 0 ? fmtUsd(totalCostUsd) : "—"} />
-                </>
-              ) : (
-                <>
-                  <SummaryLine label="Shares after" value={shares > 0 ? `${positionSharesAfter.toFixed(2)} sh` : `${positionSharesBefore.toFixed(2)} sh`} />
-                </>
-              )}
+            <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                {payOrReceiveLabel}
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: -0.2, lineHeight: 1 }}>
+                {payOrReceiveValue}
+              </Typography>
             </Box>
 
-            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.85 }}>
-              Fees are estimated (mock). Trading risks capital.
+            <Box sx={{ display: "grid", gap: 0.55, mt: 1 }}>
+              {summaryRows.map((r) => (
+                <SummaryRow key={r.k} label={r.k} value={r.v} />
+              ))}
+            </Box>
+
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
+              Trading risks capital. Fees are estimated (mock).
             </Typography>
           </Box>
 
           {isTradingDisabled ? (
-            <Alert severity="warning" variant="outlined" sx={{ py: 0.5 }}>
+            <Alert severity="warning" variant="outlined" sx={{ py: 0.6 }}>
               {tradingDisabledReason || "Trading is currently disabled for this market."}
             </Alert>
-          ) : (
-            <Alert severity="info" variant="outlined" sx={{ py: 0.5 }}>
-              Orders are simulated. Limit orders appear in Open orders.
-            </Alert>
-          )}
+          ) : null}
 
           <Button
             size="large"
             variant="contained"
-            color={ctaColor}
-            disabled={Boolean(disabledReason)}
+            disableElevation
+            disabled={ctaDisabled}
             onClick={() => setOpenConfirm(true)}
-            sx={{ fontWeight: 950, py: 1.05 }}
+            sx={{
+              py: 1.25,
+              borderRadius: 2,
+              fontWeight: 650,
+              textTransform: "none",
+            }}
           >
-            {ctaLabel}
+            {disabledReason ? disabledReason : "Trade"}
           </Button>
 
           {onRequestClose ? (
-            <Button size="small" variant="text" onClick={onRequestClose} sx={{ mt: -0.25 }}>
+            <Button size="small" variant="text" onClick={onRequestClose} sx={{ mt: -0.25, textTransform: "none" }}>
               Close
             </Button>
           ) : null}
@@ -672,23 +533,79 @@ export function TradePanel({
   );
 }
 
-function SummaryLine({
-  label,
-  value,
-  strong,
+function UnderlineTab({
+  active,
+  children,
+  onClick,
 }: {
-  label: string;
-  value: string;
-  strong?: boolean;
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
 }) {
+  const theme = useTheme();
   return (
-    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+    <Box
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === "Enter" && onClick()}
+      sx={{
+        cursor: "pointer",
+        pb: 0.75,
+        borderBottom: "2px solid",
+        borderBottomColor: active ? theme.palette.text.primary : "transparent",
+        outline: "none",
+      }}
+    >
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: active ? 650 : 600,
+          color: active ? "text.primary" : "text.secondary",
+        }}
+      >
+        {children}
+      </Typography>
+    </Box>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "baseline" }}>
       <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {label}
       </Typography>
-      <Typography variant="body2" sx={{ fontWeight: strong ? 950 : 850 }}>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>
         {value}
       </Typography>
     </Box>
+  );
+}
+
+function MiniPill({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  const theme = useTheme();
+  return (
+    <Button
+      size="small"
+      variant="outlined"
+      onClick={onClick}
+      sx={{
+        borderRadius: 1.5,
+        textTransform: "none",
+        fontWeight: 600,
+        minWidth: 0,
+        px: 1.05,
+        py: 0.45,
+        borderColor: theme.palette.divider,
+        backgroundColor: alpha(theme.palette.text.primary, 0.02),
+        "&:hover": {
+          borderColor: theme.palette.divider,
+          backgroundColor: alpha(theme.palette.text.primary, 0.035),
+        },
+      }}
+    >
+      {children}
+    </Button>
   );
 }

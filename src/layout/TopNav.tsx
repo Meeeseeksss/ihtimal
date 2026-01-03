@@ -6,6 +6,7 @@ import {
   TextField,
   InputAdornment,
   Button,
+  Link,
   Popper,
   Paper,
   List,
@@ -16,12 +17,14 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "@mui/material/styles";
 
 import { mockMarkets } from "../data/mockMarkets";
 import Logo from "../assets/ihtimal-logo.svg";
+import { HowItWorksModal } from "../components/HowItWorksModal";
 
 const RECENTS_KEY = "recentMarketSearches";
 const MAX_RECENTS = 7;
@@ -77,6 +80,7 @@ export function TopNav({
 
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [howOpen, setHowOpen] = useState(false);
   const [recents, setRecents] = useState<string[]>(() => readRecents());
   const [highlightIndex, setHighlightIndex] = useState(0);
 
@@ -183,208 +187,249 @@ export function TopNav({
   }
 
   return (
-    <AppBar
-      position="fixed"
-      elevation={0}
-      sx={{
-        bgcolor: "background.paper",
-        borderBottom: 1,
-        borderColor: "divider",
-        width: "100vw",
-        left: 0,
-        right: 0,
-      }}
-    >
-      <Toolbar
-        disableGutters
+    <>
+      <AppBar
+        position="fixed"
+        elevation={0}
         sx={{
-          minHeight: 56,
-          width: "100%",
-          px: navPx,
-          boxSizing: "border-box",
+          bgcolor: "background.paper",
+          borderBottom: 1,
+          borderColor: "divider",
+          width: "100vw",
+          left: 0,
+          right: 0,
         }}
       >
-        <Box
+        <Toolbar
+          disableGutters
           sx={{
+            minHeight: 56,
             width: "100%",
-            display: "flex",
-            alignItems: "center",
-            minWidth: 0,
-            gap: 1.25,
+            px: navPx,
+            boxSizing: "border-box",
           }}
         >
-          {/* LEFT: menu + logo */}
           <Box
             sx={{
+              width: "100%",
               display: "flex",
               alignItems: "center",
-              gap: leftGap,
-              flex: "0 0 auto",
+              minWidth: 0,
+              gap: 1.25,
             }}
           >
-            {/* ✅ Hide hamburger ONLY on phone */}
-            {!hideMenuOnPhone ? (
-              <IconButton
-                onClick={onMenuClick}
+            {/* LEFT: menu + logo */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: leftGap,
+                flex: "0 0 auto",
+              }}
+            >
+              {/* ✅ Hide hamburger ONLY on phone */}
+              {!hideMenuOnPhone ? (
+                <IconButton
+                  onClick={onMenuClick}
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    width: 40,
+                    height: 40,
+                    borderRadius: 999,
+                  }}
+                  aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                >
+                  <MenuIcon />
+                </IconButton>
+              ) : null}
+
+              <Box
+                component={RouterLink}
+                to="/markets"
+                aria-label="Go to markets"
                 sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  height: logoHeight,
+                  textDecoration: "none",
+                  "& img": {
+                    height: "100%",
+                    width: "auto",
+                  },
+                }}
+              >
+                <img src={Logo} alt="Ihtimal" />
+              </Box>
+            </Box>
+
+            {/* CENTER: search */}
+            <Box
+              ref={anchorRef}
+              sx={{
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
+              <Box
+                sx={{
+                  width: { xs: "100%", sm: 520, md: 620, lg: 680 },
+                  maxWidth: "100%",
+                }}
+              >
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search markets"
+                  value={q}
+                  onChange={(e) => {
+                    setQ(e.target.value);
+                    setHighlightIndex(0);
+                  }}
+                  onFocus={() => setOpen(true)}
+                  onBlur={() => {
+                    window.setTimeout(() => setOpen(false), 120);
+                  }}
+                  onKeyDown={onKeyDown}
+                  inputRef={inputRef}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      height: searchHeight,
+                      borderRadius: searchRadius,
+                      bgcolor: "rgba(17,24,39,0.04)",
+                      border: "1px solid rgba(17,24,39,0.14)",
+                      "&:hover": {
+                        bgcolor: "rgba(17,24,39,0.06)",
+                        borderColor: "rgba(17,24,39,0.22)",
+                      },
+                      "&.Mui-focused": {
+                        bgcolor: "rgba(17,24,39,0.06)",
+                        borderColor: "rgba(17,24,39,0.32)",
+                      },
+                      "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+                    },
+                  }}
+                />
+
+                <Popper
+                  open={open && selectable.length > 0}
+                  anchorEl={anchorRef.current}
+                  placement="bottom-start"
+                  sx={{ zIndex: 1400, width: "100%", mt: 1 }}
+                >
+                  <Paper
+                    sx={{
+                      border: "1px solid",
+                      borderColor: "divider",
+                      borderRadius: 2,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <List dense disablePadding>
+                      {selectable.map((item, idx) => {
+                        const selected = idx === highlightIndex;
+                        const primary = item.label;
+                        const secondary =
+                          item.type === "market" ? item.sublabel : item.type === "recent" ? "Recent search" : "";
+
+                        return (
+                          <ListItemButton
+                            key={`${item.type}-${item.type === "market" ? item.id : item.q}-${idx}`}
+                            selected={selected}
+                            onMouseEnter={() => setHighlightIndex(idx)}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              if (item.type === "market") goToMarket(item.id);
+                              if (item.type === "recent") goToSearch(item.q);
+                              if (item.type === "search") goToSearch(item.q);
+                            }}
+                          >
+                            <ListItemText
+                              primary={
+                                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                  {primary}
+                                </Typography>
+                              }
+                              secondary={
+                                secondary ? (
+                                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                                    {secondary}
+                                  </Typography>
+                                ) : null
+                              }
+                            />
+                          </ListItemButton>
+                        );
+                      })}
+                    </List>
+                  </Paper>
+                </Popper>
+              </Box>
+            </Box>
+
+            {/* RIGHT: how it works + auth CTAs */}
+            <Box sx={{ display: "flex", gap: 1, flex: "0 0 auto", alignItems: "center" }}>
+              {/* Polymarket-like "How it works" */}
+              <Link
+                component="button"
+                onClick={() => setHowOpen(true)}
+                underline="none"
+                sx={{
+                  display: { xs: "none", md: "inline-flex" },
+                  alignItems: "center",
+                  gap: 0.75,
+                  fontWeight: 600,
+                  color: "primary.main",
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: 999,
+                  "&:hover": { bgcolor: "rgba(25,118,210,0.08)" },
+                }}
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 18 }} />
+                How it works
+              </Link>
+
+              {/* Compact icon on smaller screens */}
+              <IconButton
+                onClick={() => setHowOpen(true)}
+                sx={{
+                  display: { xs: "inline-flex", md: "none" },
                   border: "1px solid",
                   borderColor: "divider",
                   width: 40,
                   height: 40,
                   borderRadius: 999,
                 }}
-                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                aria-label="How it works"
               >
-                <MenuIcon />
+                <InfoOutlinedIcon fontSize="small" />
               </IconButton>
-            ) : null}
 
-            <Box
-              component={RouterLink}
-              to="/markets"
-              aria-label="Go to markets"
-              sx={{
-                display: "inline-flex",
-                alignItems: "center",
-                height: logoHeight,
-                textDecoration: "none",
-                "& img": {
-                  height: "100%",
-                  width: "auto",
-                },
-              }}
-            >
-              <img src={Logo} alt="Ihtimal" />
+              {!isMobile && (
+                <>
+                  <Button component={RouterLink} to="/login" variant="text">
+                    Log in
+                  </Button>
+
+                  <Button component={RouterLink} to="/signup" variant="contained">
+                    Sign up
+                  </Button>
+                </>
+              )}
             </Box>
           </Box>
+        </Toolbar>
+      </AppBar>
 
-          {/* CENTER: search */}
-          <Box
-            ref={anchorRef}
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              display: "flex",
-              justifyContent: "center",
-            }}
-          >
-            <Box
-              sx={{
-                width: { xs: "100%", sm: 520, md: 620, lg: 680 },
-                maxWidth: "100%",
-              }}
-            >
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Search markets"
-                value={q}
-                onChange={(e) => {
-                  setQ(e.target.value);
-                  setHighlightIndex(0);
-                }}
-                onFocus={() => setOpen(true)}
-                onBlur={() => {
-                  window.setTimeout(() => setOpen(false), 120);
-                }}
-                onKeyDown={onKeyDown}
-                inputRef={inputRef}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                  sx: {
-                    height: searchHeight,
-                    borderRadius: searchRadius,
-                    bgcolor: "rgba(17,24,39,0.04)",
-                    border: "1px solid rgba(17,24,39,0.14)",
-                    "&:hover": {
-                      bgcolor: "rgba(17,24,39,0.06)",
-                      borderColor: "rgba(17,24,39,0.22)",
-                    },
-                    "&.Mui-focused": {
-                      bgcolor: "rgba(17,24,39,0.06)",
-                      borderColor: "rgba(17,24,39,0.32)",
-                    },
-                    "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-                  },
-                }}
-              />
-
-              <Popper
-                open={open && selectable.length > 0}
-                anchorEl={anchorRef.current}
-                placement="bottom-start"
-                sx={{ zIndex: 1400, width: "100%", mt: 1 }}
-              >
-                <Paper
-                  sx={{
-                    border: "1px solid",
-                    borderColor: "divider",
-                    borderRadius: 2,
-                    overflow: "hidden",
-                  }}
-                >
-                  <List dense disablePadding>
-                    {selectable.map((item, idx) => {
-                      const selected = idx === highlightIndex;
-                      const primary = item.label;
-                      const secondary =
-                        item.type === "market" ? item.sublabel : item.type === "recent" ? "Recent search" : "";
-
-                      return (
-                        <ListItemButton
-                          key={`${item.type}-${item.type === "market" ? item.id : item.q}-${idx}`}
-                          selected={selected}
-                          onMouseEnter={() => setHighlightIndex(idx)}
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => {
-                            if (item.type === "market") goToMarket(item.id);
-                            if (item.type === "recent") goToSearch(item.q);
-                            if (item.type === "search") goToSearch(item.q);
-                          }}
-                        >
-                          <ListItemText
-                            primary={
-                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                {primary}
-                              </Typography>
-                            }
-                            secondary={
-                              secondary ? (
-                                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                                  {secondary}
-                                </Typography>
-                              ) : null
-                            }
-                          />
-                        </ListItemButton>
-                      );
-                    })}
-                  </List>
-                </Paper>
-              </Popper>
-            </Box>
-          </Box>
-
-          {/* RIGHT: auth CTAs */}
-          <Box sx={{ display: "flex", gap: 1, flex: "0 0 auto" }}>
-            {!isMobile && (
-              <>
-                <Button component={RouterLink} to="/login" variant="text">
-                  Log in
-                </Button>
-
-                <Button component={RouterLink} to="/signup" variant="contained">
-                  Sign up
-                </Button>
-              </>
-            )}
-          </Box>
-        </Box>
-      </Toolbar>
-    </AppBar>
+      <HowItWorksModal open={howOpen} onClose={() => setHowOpen(false)} />
+    </>
   );
 }
