@@ -19,7 +19,7 @@ export function OpenOrdersPanel({
   return (
     <Paper sx={{ p }}>
       <Stack spacing={headerGap}>
-        <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1}}>
           <Typography variant={dense ? "subtitle1" : "h6"} sx={{ fontWeight: 900 }}>
             Open orders
           </Typography>
@@ -37,7 +37,7 @@ export function OpenOrdersPanel({
 
       <Divider sx={{ my: dividerMy }} />
 
-      <Box sx={{ display: "grid", gap: dense ? 0.6 : 0.75 }}>
+      <Box sx={{ display: "grid", gap: dense ? 0.7 : 0.75, padding:0.8 }}>
         {orders.length === 0 ? (
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             You have no open orders.
@@ -53,6 +53,7 @@ export function OpenOrdersPanel({
                 borderColor: "divider",
                 display: "grid",
                 gap: 0.6,
+                // backgroundColor:"pink"
               }}
             >
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>

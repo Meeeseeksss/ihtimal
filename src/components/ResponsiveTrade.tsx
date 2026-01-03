@@ -1,9 +1,25 @@
-import { Drawer, Fab, Box, IconButton, Typography, useMediaQuery, useTheme } from "@mui/material";
+import {
+  Box,
+  Button,
+  Dialog,
+  IconButton,
+  Paper,
+  Slide,
+  useMediaQuery,
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import SwapVertIcon from "@mui/icons-material/SwapVert";
-import { useState } from "react";
-import { TradePanel, type TradePreset } from "./TradePanel";
+import { useTheme } from "@mui/material/styles";
+import { forwardRef, useState } from "react";
+
+import { TradePanel } from "./TradePanel";
 import type { OrderBook } from "../data/mockMarketExtras";
+
+const Transition = forwardRef(function Transition(
+  props: any,
+  ref: React.Ref<unknown>
+) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
 
 export function ResponsiveTrade({
   marketId,
@@ -11,27 +27,19 @@ export function ResponsiveTrade({
   orderBook,
   isTradingDisabled,
   tradingDisabledReason,
-  presetKey,
-  preset,
 }: {
   marketId: string;
   yesPrice: number;
   orderBook?: OrderBook;
-
-  /** When true, disables the ticket (e.g. HALTED / RESOLVED). */
   isTradingDisabled?: boolean;
-  /** Optional copy shown when trading is disabled. */
   tradingDisabledReason?: string;
-
-  presetKey?: number;
-  preset?: TradePreset;
 }) {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
-  const hasBottomNav = useMediaQuery(theme.breakpoints.down("md"));
-  const fabBottom = hasBottomNav ? 80 : 16; // avoid overlap with mobile bottom nav
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
   const [open, setOpen] = useState(false);
 
+  // ---------- DESKTOP ----------
   if (!isMobile) {
     return (
       <TradePanel
@@ -40,66 +48,81 @@ export function ResponsiveTrade({
         orderBook={orderBook}
         isTradingDisabled={isTradingDisabled}
         tradingDisabledReason={tradingDisabledReason}
-        presetKey={presetKey}
-        preset={preset}
       />
     );
   }
 
+  // ---------- MOBILE ----------
   return (
     <>
-      <Fab
-        color="primary"
-        variant="extended"
-        onClick={() => setOpen(true)}
-        sx={{ position: "fixed", right: 16, bottom: fabBottom, zIndex: 1400 }}
-      >
-        <SwapVertIcon sx={{ mr: 1 }} />
-        Trade
-      </Fab>
+      {/* Trade CTA — hidden when modal is open */}
+      {!open && (
+        <Button
+          fullWidth
+          size="large"
+          variant="contained"
+          onClick={() => setOpen(true)}
+          sx={{
+            py: 1.25,
+            borderRadius: 2,
+            fontWeight: 700,
+            textTransform: "none",
+          }}
+        >
+          Trade
+        </Button>
+      )}
 
-      <Drawer
-        anchor="bottom"
+      <Dialog
         open={open}
+        fullScreen
         onClose={() => setOpen(false)}
+        TransitionComponent={Transition}
         PaperProps={{
           sx: {
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            maxHeight: "86vh",
-            pb: 2,
+            bgcolor: "background.default",
           },
         }}
       >
-        <Box sx={{ px: 2, pt: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Box sx={{ width: 36, height: 4, bgcolor: "rgba(17,24,39,0.25)", borderRadius: 999, mx: "auto" }} />
-          <IconButton onClick={() => setOpen(false)} aria-label="close trade sheet">
+        {/* Top bar with close */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            px: 1,
+            py: 0.75,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <IconButton
+            onClick={() => setOpen(false)}
+            aria-label="Close trade"
+            sx={{
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+            }}
+          >
             <CloseIcon />
           </IconButton>
         </Box>
 
-        <Box sx={{ px: 2, pb: 1 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-            Trade ticket
-          </Typography>
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>
-            Review cost, fees, and max loss before placing orders.
-          </Typography>
+        {/* Trade content */}
+        <Box sx={{ p: 1.25 }}>
+          <Paper elevation={0}>
+            <TradePanel
+              marketId={marketId}
+              yesPrice={yesPrice}
+              orderBook={orderBook}
+              isTradingDisabled={isTradingDisabled}
+              tradingDisabledReason={tradingDisabledReason}
+              onRequestClose={() => setOpen(false)}
+            />
+          </Paper>
         </Box>
-
-        <Box sx={{ px: 2 }}>
-          <TradePanel
-            marketId={marketId}
-            yesPrice={yesPrice}
-            orderBook={orderBook}
-            isTradingDisabled={isTradingDisabled}
-            tradingDisabledReason={tradingDisabledReason}
-            onRequestClose={() => setOpen(false)}
-            presetKey={presetKey}
-            preset={preset}
-          />
-        </Box>
-      </Drawer>
+      </Dialog>
     </>
   );
 }
