@@ -117,7 +117,6 @@ export function TradePanel({
   const orderMenuOpen = Boolean(orderMenuAnchor);
 
   const yesMid = clamp01(yesPrice);
-  const noMid = clamp01(1 - yesPrice);
 
   const positionSharesBefore = useMemo(() => {
     return side === "YES" ? posYes?.shares ?? 0 : posNo?.shares ?? 0;
@@ -432,7 +431,7 @@ export function TradePanel({
               </Box>
             ) : null}
           </Box>
-<br />
+          <br />
           {/* Summary */}
           <Box sx={{ border: `1px solid ${divider}`, borderRadius: 2, p: 1.2, bgcolor: surface }}>
             <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
@@ -472,7 +471,7 @@ export function TradePanel({
               {tradingDisabledReason || "Trading is currently disabled for this market."}
             </Alert>
           ) : null}
-<br />
+          <br />
           <Button
             size="large"
             variant="contained"
