@@ -12,11 +12,6 @@ import {
   ListItemIcon,
   Divider,
   Switch,
-  Popper,
-  Paper,
-  List,
-  ListItemButton,
-  ListItemText,
   Typography,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -29,46 +24,11 @@ import PersonAddAltIcon from "@mui/icons-material/PersonAddAlt";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import { useEffect, useState } from "react";
 
-import { mockMarkets } from "../data/mockMarkets";
 import Logo from "../assets/ihtimal-logo.svg";
 import { HowItWorksModal } from "../components/HowItWorksModal";
 import { useColorMode } from "../theme/ColorModeContext";
-
-const RECENTS_KEY = "recentMarketSearches";
-const MAX_RECENTS = 7;
-
-/* ---------- helpers ---------- */
-
-type SearchItem =
-  | { type: "market"; id: string; label: string; sublabel?: string }
-  | { type: "recent"; q: string; label: string }
-  | { type: "search"; q: string; label: string };
-
-function readRecents(): string[] {
-  try {
-    const raw = localStorage.getItem(RECENTS_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    return arr.filter((x) => typeof x === "string").slice(0, MAX_RECENTS);
-  } catch {
-    return [];
-  }
-}
-
-function writeRecents(recents: string[]) {
-  try {
-    localStorage.setItem(
-      RECENTS_KEY,
-      JSON.stringify(recents.slice(0, MAX_RECENTS))
-    );
-  } catch {}
-}
-
-/* ---------- component ---------- */
 
 export function TopNav({
   collapsed,
@@ -83,6 +43,7 @@ export function TopNav({
   const location = useLocation();
   const { mode, toggleColorMode } = useColorMode();
 
+  // Locked design constraints (source of truth)
   const navPx = { xs: 1.5, sm: 2.5 };
   const searchHeight = 40;
   const searchRadius = 999;
@@ -90,49 +51,18 @@ export function TopNav({
   const leftGap = 1.25;
 
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
   const [howOpen, setHowOpen] = useState(false);
   const [acctAnchorEl, setAcctAnchorEl] = useState<null | HTMLElement>(null);
-  const [recents, setRecents] = useState<string[]>(() => readRecents());
-  const [highlightIndex, setHighlightIndex] = useState(0);
 
   const acctOpen = Boolean(acctAnchorEl);
 
-  const anchorRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    setRecents(readRecents());
-  }, []);
-
-  useEffect(() => {
-    setOpen(false);
+  function closeAcctMenu() {
     setAcctAnchorEl(null);
+  }
+
+  useEffect(() => {
+    closeAcctMenu();
   }, [location.pathname, location.search]);
-
-  const matches = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return [];
-
-    return mockMarkets
-      .filter((m) => m.question.toLowerCase().includes(needle))
-      .slice(0, 7)
-      .map<SearchItem>((m) => ({
-        type: "market",
-        id: m.id,
-        label: m.question,
-        sublabel: `${m.category} • YES ${Math.round(m.yesPrice * 100)}%`,
-      }));
-  }, [q]);
-
-  const selectable = useMemo(() => {
-    if (!q.trim()) {
-      return recents.map((r) => ({ type: "recent", q: r, label: r }));
-    }
-    return [
-      ...matches,
-      { type: "search", q, label: `Search markets for "${q}"` },
-    ];
-  }, [q, matches, recents]);
 
   return (
     <>
@@ -144,13 +74,17 @@ export function TopNav({
           borderBottom: 1,
           borderColor: "divider",
           width: "100%",
+          left: 0,
+          right: 0,
         }}
       >
         <Toolbar
           disableGutters
           sx={{
             minHeight: 56,
+            width: "100%",
             px: navPx,
+            boxSizing: "border-box",
           }}
         >
           <Box
@@ -158,6 +92,7 @@ export function TopNav({
               width: "100%",
               display: "flex",
               alignItems: "center",
+              minWidth: 0,
               gap: 1.25,
             }}
           >
@@ -170,7 +105,7 @@ export function TopNav({
                 flex: "0 0 auto",
               }}
             >
-              {/* DESKTOP ONLY */}
+              {/* DESKTOP ONLY: hamburger */}
               <IconButton
                 onClick={onMenuClick}
                 sx={{
@@ -189,11 +124,13 @@ export function TopNav({
               <Box
                 component={RouterLink}
                 to="/markets"
+                aria-label="Go to markets"
                 sx={{
                   display: "inline-flex",
                   alignItems: "center",
                   height: logoHeight,
-                  "& img": { height: "100%" },
+                  textDecoration: "none",
+                  "& img": { height: "100%", width: "auto" },
                 }}
               >
                 <img src={Logo} alt="Ihtimal" />
@@ -201,32 +138,62 @@ export function TopNav({
             </Box>
 
             {/* CENTER: search */}
-            <Box ref={anchorRef} sx={{ flex: 1 }}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Search markets"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                  sx: {
-                    height: searchHeight,
-                    borderRadius: searchRadius,
-                    bgcolor: "rgba(17,24,39,0.04)",
-                    "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-                  },
+            <Box
+              sx={{
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
+              <Box
+                sx={{
+                  width: { xs: "100%", sm: 520, md: 620, lg: 680 },
+                  maxWidth: "100%",
                 }}
-              />
+              >
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search markets"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      height: searchHeight,
+                      borderRadius: searchRadius,
+                      bgcolor: "rgba(17,24,39,0.04)",
+                      border: "1px solid rgba(17,24,39,0.14)",
+                      "&:hover": {
+                        bgcolor: "rgba(17,24,39,0.06)",
+                        borderColor: "rgba(17,24,39,0.22)",
+                      },
+                      "&.Mui-focused": {
+                        bgcolor: "rgba(17,24,39,0.06)",
+                        borderColor: "rgba(17,24,39,0.32)",
+                      },
+                      "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+                    },
+                  }}
+                />
+              </Box>
             </Box>
 
-            {/* RIGHT: mobile account + how it works + desktop auth */}
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-              {/* MOBILE account */}
+            {/* RIGHT: mobile account + how-it-works + desktop CTAs */}
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1,
+                flex: "0 0 auto",
+                alignItems: "center",
+              }}
+            >
+              {/* MOBILE ONLY: account icon (left of how-it-works icon) */}
               <IconButton
                 onClick={(e) => setAcctAnchorEl(e.currentTarget)}
                 sx={{
@@ -237,18 +204,38 @@ export function TopNav({
                   height: 40,
                   borderRadius: 999,
                 }}
+                aria-label="Account"
+                aria-controls={acctOpen ? "mobile-account-menu" : undefined}
+                aria-haspopup="true"
+                aria-expanded={acctOpen ? "true" : undefined}
               >
                 <AccountCircleOutlinedIcon fontSize="small" />
               </IconButton>
 
               <Menu
+                id="mobile-account-menu"
                 anchorEl={acctAnchorEl}
                 open={acctOpen}
-                onClose={() => setAcctAnchorEl(null)}
+                onClose={closeAcctMenu}
                 anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
                 transformOrigin={{ vertical: "top", horizontal: "right" }}
+                PaperProps={{
+                  sx: {
+                    mt: 1,
+                    borderRadius: 2,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    minWidth: 230,
+                    overflow: "hidden",
+                  },
+                }}
               >
-                <MenuItem onClick={() => navigate("/profile")}>
+                <MenuItem
+                  onClick={() => {
+                    closeAcctMenu();
+                    navigate("/profile");
+                  }}
+                >
                   <ListItemIcon>
                     <PersonOutlineIcon fontSize="small" />
                   </ListItemIcon>
@@ -257,14 +244,24 @@ export function TopNav({
 
                 <Divider />
 
-                <MenuItem onClick={() => navigate("/login")}>
+                <MenuItem
+                  onClick={() => {
+                    closeAcctMenu();
+                    navigate("/login");
+                  }}
+                >
                   <ListItemIcon>
                     <LoginIcon fontSize="small" />
                   </ListItemIcon>
                   Log in
                 </MenuItem>
 
-                <MenuItem onClick={() => navigate("/signup")}>
+                <MenuItem
+                  onClick={() => {
+                    closeAcctMenu();
+                    navigate("/signup");
+                  }}
+                >
                   <ListItemIcon>
                     <PersonAddAltIcon fontSize="small" />
                   </ListItemIcon>
@@ -273,36 +270,83 @@ export function TopNav({
 
                 <Divider />
 
-                <MenuItem onClick={toggleColorMode}>
-                  <ListItemIcon>
-                    {mode === "dark" ? (
-                      <DarkModeOutlinedIcon fontSize="small" />
-                    ) : (
-                      <LightModeOutlinedIcon fontSize="small" />
-                    )}
-                  </ListItemIcon>
-                  Dark mode
-                  <Switch checked={mode === "dark"} sx={{ ml: "auto" }} />
+                <MenuItem
+                  onClick={() => {
+                    toggleColorMode();
+                  }}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 2,
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <ListItemIcon sx={{ minWidth: 32 }}>
+                      {mode === "dark" ? (
+                        <DarkModeOutlinedIcon fontSize="small" />
+                      ) : (
+                        <LightModeOutlinedIcon fontSize="small" />
+                      )}
+                    </ListItemIcon>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      Dark mode
+                    </Typography>
+                  </Box>
+
+                  <Switch
+                    edge="end"
+                    checked={mode === "dark"}
+                    onChange={() => toggleColorMode()}
+                    onClick={(e) => e.stopPropagation()}
+                    inputProps={{ "aria-label": "Toggle dark mode" }}
+                  />
                 </MenuItem>
               </Menu>
 
-              {/* HOW IT WORKS */}
+              {/* Desktop: How it works text link */}
+              <Link
+                component="button"
+                onClick={() => setHowOpen(true)}
+                underline="none"
+                sx={{
+                  display: { xs: "none", md: "inline-flex" },
+                  alignItems: "center",
+                  gap: 0.75,
+                  fontWeight: 600,
+                  color: "primary.main",
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: 999,
+                  "&:hover": { bgcolor: "rgba(25,118,210,0.08)" },
+                }}
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 18 }} />
+                How it works
+              </Link>
+
+              {/* Mobile: how-it-works icon */}
               <IconButton
                 onClick={() => setHowOpen(true)}
                 sx={{
+                  display: { xs: "inline-flex", md: "none" },
                   border: "1px solid",
                   borderColor: "divider",
                   width: 40,
                   height: 40,
                   borderRadius: 999,
                 }}
+                aria-label="How it works"
               >
                 <InfoOutlinedIcon fontSize="small" />
               </IconButton>
 
+              {/* Desktop auth stays as-is */}
               {!isMobile && (
                 <>
-                  <Button component={RouterLink} to="/login">Log in</Button>
+                  <Button component={RouterLink} to="/login" variant="text">
+                    Log in
+                  </Button>
                   <Button component={RouterLink} to="/signup" variant="contained">
                     Sign up
                   </Button>
